@@ -1,0 +1,37 @@
+# mise 配置:开发工具版本、环境变量、构建任务
+# 核心约束:go:embed 要求 internal/web/dist 存在且非空,因此后端构建/全量测试必须先构建前端(任务依赖链保证)
+
+[tools]
+go = "1.26.5"
+node = "22"
+
+[env]
+# 从项目根目录加载 .env(模板见 .env.example;变量均可选,缺失项走 internal/config 默认值)
+_.file = '.env'
+
+[tasks.build-web]
+description = "构建前端管理台,产物输出到 internal/web/dist(源码未变时跳过)"
+dir = "web"
+sources = ["package.json", "package-lock.json", "vite.config.js", "index.html", "src/**/*"]
+outputs = ["../internal/web/dist/index.html"]
+run = "npm install && npm run build"
+
+[tasks.build]
+description = "构建后端单二进制 bin/tokenhub(自动先构建前端)"
+depends = ["build-web"]
+run = "go build -o bin/tokenhub ./cmd/server"
+
+[tasks.test]
+description = "运行全部 Go 测试(internal/web 的 go:embed 需要 dist,自动先构建前端)"
+depends = ["build-web"]
+run = "go test ./..."
+
+[tasks.dev]
+description = "前端开发服务器,代理 /api 与 /v1 到 localhost:8080(需另开终端运行 mise run serve)"
+dir = "web"
+run = "npm run dev"
+
+[tasks.serve]
+description = "构建并启动网关服务"
+depends = ["build"]
+run = "./bin/tokenhub"
