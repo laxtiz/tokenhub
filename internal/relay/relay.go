@@ -627,7 +627,7 @@ func classifyStatus(status int) string {
 	switch {
 	case status == 401 || status == 403:
 		return "auth"
-	case status == 429:
+	case status == 402 || status == 429:
 		return "rate_limit"
 	case status >= 500:
 		return "server"
