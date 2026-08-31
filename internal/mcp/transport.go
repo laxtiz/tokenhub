@@ -39,6 +39,10 @@ func Handler(database *gorm.DB) gin.HandlerFunc {
 		// stateless：每个请求独立会话，工具集会话之间不共享状态；
 		// 用户身份通过 wrapContext 注入到 ctx。
 		Stateless: true,
+		// 网关可能部署在反向代理之后，请求经代理转发到本地监听地址，
+		// Host 头是外部域名，会触发 SDK 的 DNS rebinding 防护而返回 403，
+		// 这里显式关闭。
+		DisableLocalhostProtection: true,
 	})
 
 	return func(c *gin.Context) {
