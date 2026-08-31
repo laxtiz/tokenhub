@@ -9,7 +9,7 @@
         <p class="line dim"># 使用管理台账号登录</p>
         <form @submit.prevent="doLogin">
           <div class="cmd-line">
-            <span class="green">$</span>&nbsp;tokenhub auth login <span class="cont">\</span>
+            <span class="green">$</span>tokenhub auth login <span class="cont">\</span>
           </div>
           <div class="cmd-line indent">
             <span class="flag">--username</span>
@@ -21,7 +21,7 @@
             <el-input v-model="password" type="password" show-password />
           </div>
           <button type="submit" class="verify-line" :disabled="loading">
-            <span class="green">$</span>&nbsp;tokenhub auth verify&nbsp;<span class="cursor"></span>
+            <span class="green">$</span>tokenhub auth verify<span class="cursor"></span>
             <span v-if="loading" class="dim">&nbsp;running...</span>
           </button>
         </form>
@@ -119,7 +119,7 @@ async function doLogin() {
 
 /* verify 提交：一行终端命令文本，可点击 */
 .verify-line {
-  display: inline-flex; align-items: center;
+  display: inline-flex; align-items: center; gap: 8px;
   margin-top: 14px;
   padding: 2px 4px;
   background: none;
