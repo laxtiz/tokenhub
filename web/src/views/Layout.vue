@@ -177,7 +177,7 @@ function onCmd(cmd) {
 .username { flex: 1; font-size: 12.5px; color: var(--th-fg); }
 .role-tag { font-size: 11px; color: var(--th-fg-dim); }
 
-.main { flex: 1; overflow-y: auto; padding: 24px 28px; }
+.main { flex: 1; min-width: 0; padding: 24px 28px; }
 .content { max-width: 1200px; margin: 0 auto; }
 
 /* ---- 移动端：侧边栏改为抽屉 ---- */
