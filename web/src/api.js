@@ -14,7 +14,7 @@ export async function api(method, url, body) {
   })
   if (resp.status === 401) {
     clearToken()
-    location.href = '/#/login'
+    location.href = '/login'
     throw new Error('未登录')
   }
   const data = await resp.json().catch(() => null)
