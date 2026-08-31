@@ -9,7 +9,7 @@
       </template>
       <el-table :data="users" stripe>
         <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="username" label="用户名" width="160" />
+        <el-table-column prop="username" label="用户名" min-width="140" />
         <el-table-column prop="role" label="角色" width="100">
           <template #default="{ row }">
             <el-tag size="small" :type="row.role === 'admin' ? 'danger' : ''">{{ row.role }}</el-tag>
@@ -26,7 +26,7 @@
         <el-table-column prop="created_at" label="创建时间" width="170">
           <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" min-width="200">
+        <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="openForm(row)">编辑</el-button>
           </template>

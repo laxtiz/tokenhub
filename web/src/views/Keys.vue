@@ -19,7 +19,7 @@
 
       <el-table :data="keys" stripe>
         <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="name" label="名称" width="180" />
+        <el-table-column prop="name" label="名称" min-width="160" />
         <el-table-column label="Key" width="160">
           <template #default="{ row }"><span style="font-family:monospace">{{ row.key_prefix }}****</span></template>
         </el-table-column>
@@ -34,7 +34,7 @@
         <el-table-column label="创建时间" width="150">
           <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" min-width="120">
+        <el-table-column label="操作" width="80" fixed="right">
           <template #default="{ row }">
             <el-popconfirm title="删除后不可恢复，确认？" @confirm="removeKey(row)">
               <template #reference><el-button size="small" type="danger">删除</el-button></template>
@@ -58,9 +58,15 @@
           </div>
         </div>
       </div>
+    </el-card>
 
-      <el-divider />
-      <h4>调用示例</h4>
+    <el-card>
+      <template #header>
+        <div class="card-head-flex">
+          <span>调用示例</span>
+          <span class="card-head-meta">用 Key 接入 TokenHub 网关</span>
+        </div>
+      </template>
       <div class="examples">
         <div class="ex-block">
           <div class="ex-title">OpenAI 兼容</div>
@@ -75,21 +81,23 @@
           <pre class="ex-code">{{ examples.models }}</pre>
         </div>
       </div>
+    </el-card>
 
-      <el-divider />
-      <h4>MCP 接入指南（让 AI Agent 查询你的数据）</h4>
-      <p style="color:var(--th-fg-dim);font-size:12px;margin:0 0 12px">
-        TokenHub 提供 6 个只读工具：<code>list_models</code>、<code>list_my_keys</code>、<code>list_my_logs</code>、<code>get_trace_detail</code>、<code>get_my_stats</code>、<code>get_my_account</code>。
-        Agent 通过 <code>Authorization: Bearer th-xxx</code> 接入，只能看到该 Key 所属用户的数据。
-      </p>
+    <el-card>
+      <template #header>
+        <div class="card-head-flex">
+          <span>MCP 接入指南</span>
+          <span class="card-head-meta">让 AI Agent 查询你的数据</span>
+        </div>
+      </template>
       <div class="examples">
+        <div class="ex-block">
+          <div class="ex-title">MCP URL</div>
+          <pre class="ex-code">{{ host }}/mcp</pre>
+        </div>
         <div class="ex-block">
           <div class="ex-title">Claude Desktop / Cline / Cursor 等</div>
           <pre class="ex-code">{{ examples.mcpClient }}</pre>
-        </div>
-        <div class="ex-block">
-          <div class="ex-title">用 curl 验证握手</div>
-          <pre class="ex-code">{{ examples.mcpCurl }}</pre>
         </div>
       </div>
     </el-card>
@@ -128,21 +136,7 @@ const examples = computed(() => {
       }
     }
   }
-}`,
-
-    mcpCurl: `# initialize 握手
-curl -X POST ${host}/mcp \\
-  -H "Authorization: Bearer ${key}" \\
-  -H "Content-Type: application/json" \\
-  -H "Accept: application/json, text/event-stream" \\
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{}}}'
-
-# 列出可用工具
-curl -X POST ${host}/mcp \\
-  -H "Authorization: Bearer ${key}" \\
-  -H "Content-Type: application/json" \\
-  -H "Accept: application/json, text/event-stream" \\
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'`
+}`
   }
 })
 
@@ -178,7 +172,7 @@ onMounted(load)
   color: var(--th-fg-dim);
   margin-bottom: 6px;
 }
-.ex-title::before { content: '▍'; color: var(--th-green); margin-right: 6px; }
+.ex-title::before { content: '# '; color: var(--th-fg-dim); margin-right: 2px; }
 .ex-code {
   margin: 0;
   padding: 12px 14px;

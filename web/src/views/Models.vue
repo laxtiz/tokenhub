@@ -7,24 +7,43 @@
           <el-button v-if="isAdmin" type="primary" @click="openEdit(null)">新建模型</el-button>
         </div>
       </template>
-      <el-table :data="models" stripe>
-        <el-table-column prop="name" label="模型名" width="220" />
-        <el-table-column prop="display_name" label="显示名" width="140" />
-        <el-table-column prop="context_length" label="上下文" width="100" />
-        <el-table-column label="能力" width="180">
+      <el-table :data="models" stripe class="models-table">
+        <el-table-column label="模型" min-width="200">
           <template #default="{ row }">
-            <el-tag v-if="row.support_vision" size="small">视觉</el-tag>
-            <el-tag v-if="row.support_tools" size="small" type="success">工具</el-tag>
-            <el-tag v-if="row.support_reasoning" size="small" type="warning">推理</el-tag>
-            <el-tag v-if="row.disabled" size="small" type="danger">停用</el-tag>
+            <div class="model-name-cell">
+              <div class="model-name">{{ row.name }}</div>
+              <div v-if="row.display_name" class="model-display-name">{{ row.display_name }}</div>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="价格 / 1M tokens">
+        <el-table-column prop="context_length" label="上下文" width="110" align="right" header-align="left">
+          <template #default="{ row }">{{ row.context_length?.toLocaleString() }}</template>
+        </el-table-column>
+        <el-table-column label="能力" min-width="170">
           <template #default="{ row }">
-            输入 ${{ row.input_price }} · 输出 ${{ row.output_price }} · 缓存读 ${{ row.cache_read_price }} · 缓存写 ${{ row.cache_write_price }}
+            <div class="cap-tags">
+              <el-tag v-if="row.support_vision" size="small">视觉</el-tag>
+              <el-tag v-if="row.support_tools" size="small" type="success">工具</el-tag>
+              <el-tag v-if="row.support_reasoning" size="small" type="warning">推理</el-tag>
+              <el-tag v-if="row.disabled" size="small" type="danger">停用</el-tag>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column v-if="isAdmin" label="上游渠道" width="100">
+        <el-table-column label="价格 / 1M tokens" min-width="240">
+          <template #default="{ row }">
+            <div class="price-cell">
+              <div class="price-row">
+                <span><span class="k">输入</span>${{ row.input_price }}</span>
+                <span><span class="k">输出</span>${{ row.output_price }}</span>
+              </div>
+              <div class="price-row price-row-cache">
+                <span><span class="k">缓存读</span>${{ row.cache_read_price }}</span>
+                <span><span class="k">缓存写</span>${{ row.cache_write_price }}</span>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column v-if="isAdmin" label="上游渠道" width="90" align="right" header-align="left">
           <template #default="{ row }">{{ (row.channels || []).length }} 个</template>
         </el-table-column>
         <el-table-column v-if="isAdmin" label="操作" width="200" fixed="right">
@@ -40,7 +59,10 @@
       <div class="card-list">
         <div v-for="row in models" :key="row.id" class="card-row">
           <div class="row-head">
-            <span class="row-title">{{ row.name }}</span>
+            <div>
+              <span class="row-title model-name">{{ row.name }}</span>
+              <span v-if="row.display_name" class="model-display-name-mobile">· {{ row.display_name }}</span>
+            </div>
             <span style="display:flex;gap:4px;flex-wrap:wrap">
               <el-tag v-if="row.support_vision" size="small">视觉</el-tag>
               <el-tag v-if="row.support_tools" size="small" type="success">工具</el-tag>
@@ -48,8 +70,7 @@
               <el-tag v-if="row.disabled" size="small" type="danger">停用</el-tag>
             </span>
           </div>
-          <div v-if="row.display_name" class="field"><span class="k">显示名</span><span class="v">{{ row.display_name }}</span></div>
-          <div v-if="row.context_length" class="field"><span class="k">上下文</span><span class="v">{{ row.context_length }}</span></div>
+          <div v-if="row.context_length" class="field"><span class="k">上下文</span><span class="v">{{ row.context_length?.toLocaleString() }}</span></div>
           <div class="field"><span class="k">输入/输出</span><span class="v">${{ row.input_price }} / ${{ row.output_price }}</span></div>
           <div class="field"><span class="k">缓存读/写</span><span class="v">${{ row.cache_read_price }} / ${{ row.cache_write_price }}</span></div>
           <div v-if="isAdmin" class="field"><span class="k">上游渠道</span><span class="v">{{ (row.channels || []).length }} 个</span></div>
@@ -229,3 +250,57 @@ async function removeChannel(row) {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.models-table :deep(.el-table__cell) {
+  padding: 10px 0;
+}
+.models-table :deep(th.el-table__cell) {
+  padding: 12px 0;
+}
+.model-name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.4;
+}
+.model-name {
+  color: var(--th-green);
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+}
+.model-display-name {
+  color: var(--th-fg-dim);
+  font-size: 12px;
+}
+.model-display-name-mobile {
+  color: var(--th-fg-dim);
+  font-size: 12px;
+  font-weight: 400;
+}
+.cap-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.price-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.price-row {
+  display: flex;
+  gap: 14px;
+}
+.price-row-cache {
+  color: var(--th-fg-dim);
+  font-size: 11px;
+}
+.price-cell .k {
+  color: var(--th-fg-dim);
+  margin-right: 4px;
+}
+</style>

@@ -19,28 +19,27 @@
         </div>
       </template>
       <el-table :data="items" size="small" stripe>
-        <el-table-column prop="trace_id" label="Trace ID" width="130">
+        <el-table-column prop="trace_id" label="Trace ID" width="220">
           <template #default="{ row }">
             <el-link type="primary" :title="row.trace_id" @click="openTrace(row.trace_id)">{{ shortTrace(row.trace_id) }}</el-link>
           </template>
         </el-table-column>
         <el-table-column v-if="isAdmin" prop="username" label="用户" width="100" />
-        <el-table-column prop="model" label="模型" width="160" />
+        <el-table-column prop="model" label="模型" min-width="140" />
         <el-table-column label="状态" width="80">
           <template #default="{ row }">
             <el-tag size="small" :type="row.status === 200 ? 'success' : 'danger'">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="输入/输出" width="110">
+        <el-table-column label="输入/输出" width="120">
           <template #default="{ row }">{{ row.prompt_tokens }} / {{ row.completion_tokens }}</template>
         </el-table-column>
-        <el-table-column label="费用" width="110">
+        <el-table-column label="费用" width="120">
           <template #default="{ row }">${{ (row.cost || 0).toFixed(6) }}</template>
         </el-table-column>
         <el-table-column label="时间" width="150">
           <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column prop="error" label="错误" min-width="140" show-overflow-tooltip />
       </el-table>
       <div class="card-list">
         <div v-for="row in items" :key="row.trace_id" class="card-row">
@@ -53,7 +52,6 @@
           <div class="field"><span class="k">输入 / 输出</span><span class="v">{{ row.prompt_tokens }} / {{ row.completion_tokens }}</span></div>
           <div class="field"><span class="k">费用</span><span class="v">${{ (row.cost || 0).toFixed(6) }}</span></div>
           <div class="field"><span class="k">时间</span><span class="v">{{ fmtTime(row.created_at) }}</span></div>
-          <div v-if="row.error" class="field"><span class="k">错误</span><span class="v">{{ row.error }}</span></div>
         </div>
       </div>
       <el-pagination style="margin-top:12px" layout="prev, pager, next, total" :total="total"
@@ -115,8 +113,8 @@ const isAdmin = computed(() => {
 const items = ref([])
 const total = ref(0)
 
-// 列表里只显示尾部 8 位，悬停可见完整 Trace ID；详情与查询仍用完整值
-const shortTrace = (tid) => (tid && tid.length > 16 ? '…' + tid.slice(-8) : tid)
+// 列表里只显示完整随机后缀（去掉 - 前缀），悬停可见完整 Trace ID；详情用全量
+const shortTrace = (tid) => (tid && tid.includes('-') ? tid.slice(tid.indexOf('-') + 1) : tid)
 
 // 简化时间戳：2026-08-31T03:26:20.123+08:00 → 2026-08-31 03:26
 const fmtTime = (t) => (t ? t.slice(0, 16).replace('T', ' ') : '-')

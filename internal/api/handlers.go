@@ -275,7 +275,10 @@ func (s *Server) stats(admin bool) gin.HandlerFunc {
 
 		// 模型维度 TOP
 		mq := s.DB.Model(&db.RequestLog{}).Where("created_at >= ?", since).
-			Select(`model, count(*) as requests, COALESCE(sum(cost),0) as cost`).
+			Select(`model, count(*) as requests,
+				COALESCE(sum(prompt_tokens),0) as prompt_tokens,
+				COALESCE(sum(completion_tokens),0) as completion_tokens,
+				COALESCE(sum(cost),0) as cost`).
 			Group("model").Order("cost DESC").Limit(20)
 		if !admin {
 			mq = mq.Where("user_id = ?", currentUser(c).ID)

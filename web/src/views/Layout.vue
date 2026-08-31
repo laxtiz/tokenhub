@@ -127,7 +127,7 @@ function onCmd(cmd) {
 </script>
 
 <style scoped>
-.shell { display: flex; height: 100vh; }
+.shell { display: flex; height: 100vh; overflow: hidden; }
 
 .side {
   width: 212px;
@@ -177,7 +177,7 @@ function onCmd(cmd) {
 .username { flex: 1; font-size: 12.5px; color: var(--th-fg); }
 .role-tag { font-size: 11px; color: var(--th-fg-dim); }
 
-.main { flex: 1; min-width: 0; padding: 24px 28px; }
+.main { flex: 1; min-width: 0; padding: 24px 28px; overflow-y: auto; height: 100%; }
 .content { max-width: 1200px; margin: 0 auto; }
 
 /* ---- 移动端：侧边栏改为抽屉 ---- */
