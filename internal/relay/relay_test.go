@@ -533,3 +533,110 @@ func TestUnknownModel(t *testing.T) {
 		t.Fatalf("want 404, got %d", w.Code)
 	}
 }
+
+// ---- Provider 自定义 UA / headers ----
+
+// 校验转发时附加的自定义 UA、自定义 headers，并保证鉴权头不被覆盖。
+func TestProviderCustomHeaders(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var gotAuth, gotUA, gotXTrace, gotReserved string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotUA = r.Header.Get("User-Agent")
+		gotXTrace = r.Header.Get("X-Trace-Id")
+		gotReserved = r.Header.Get("X-Custom-Auth")
+		writeJSON(w, openaiCompletionJSON("gpt-x", "ok"))
+	}))
+	t.Cleanup(upstream.Close)
+
+	database, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	logs := db.NewLogWriter(database)
+	t.Cleanup(logs.Close)
+
+	u := &db.User{Username: "u1", Role: "user"}
+	database.Create(u)
+	database.Create(&db.DownstreamKey{UserID: u.ID, Name: "k", KeyHash: auth.HashKey("th-test"), KeyPrefix: "th-test"})
+
+	// 注入自定义 UA + headers（含一个试图覆盖 Authorization 的保留字段，应当被忽略）
+	database.Create(&db.Provider{
+		Name:          "mock",
+		Type:          "openai",
+		BaseURL:       upstream.URL,
+		UserAgent:     "TokenHub-Test/1.0",
+		CustomHeaders: `{"X-Trace-Id":"abc-123","Authorization":"Bearer HACKED","x-custom-auth":"sneaky"}`,
+	})
+	var prov db.Provider
+	database.First(&prov)
+	database.Create(&db.ProviderKey{ProviderID: prov.ID, APIKey: "real-key"})
+	m := &db.Model{Name: "gpt-x", InputPrice: 1, OutputPrice: 1}
+	database.Create(m)
+	database.Create(&db.ModelChannel{ModelID: m.ID, ProviderID: prov.ID, UpstreamModel: "gpt-x", Priority: 1})
+
+	rl := relay.New(database, logs)
+	dl := auth.DownstreamAuth(database)
+	engine := gin.New()
+	engine.POST("/v1/chat/completions", dl, func(c *gin.Context) { rl.Handle(c, "openai") })
+
+	postJSON(t, engine, "/v1/chat/completions", openaiReq("gpt-x", false))
+
+	if gotAuth != "Bearer real-key" {
+		t.Fatalf("Authorization 必须保留真实 key,实际 %q", gotAuth)
+	}
+	if gotUA != "TokenHub-Test/1.0" {
+		t.Fatalf("User-Agent 未生效,实际 %q", gotUA)
+	}
+	if gotXTrace != "abc-123" {
+		t.Fatalf("X-Trace-Id 未生效,实际 %q", gotXTrace)
+	}
+	if gotReserved != "sneaky" {
+		t.Fatalf("X-Custom-Auth 非保留头应当透传,实际 %q", gotReserved)
+	}
+}
+
+// validateCustomHeaders 的单元测试由 admin 包覆盖，这里只补一个集成路径：DB 残留非法 header 不会破坏转发。
+func TestProviderCustomHeaders_DB残留保留头被忽略(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var gotAuth string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		writeJSON(w, openaiCompletionJSON("gpt-x", "ok"))
+	}))
+	t.Cleanup(upstream.Close)
+
+	database, _ := db.Open(filepath.Join(t.TempDir(), "test.db"))
+	logs := db.NewLogWriter(database)
+	t.Cleanup(logs.Close)
+
+	u := &db.User{Username: "u1", Role: "user"}
+	database.Create(u)
+	database.Create(&db.DownstreamKey{UserID: u.ID, Name: "k", KeyHash: auth.HashKey("th-test"), KeyPrefix: "th-test"})
+
+	// 模拟旧数据：CustomHeaders 包含保留键
+	database.Create(&db.Provider{
+		Name:          "legacy",
+		Type:          "openai",
+		BaseURL:       upstream.URL,
+		CustomHeaders: `{"Authorization":"Bearer LEGACY","X-Foo":"bar"}`,
+	})
+	var prov db.Provider
+	database.First(&prov)
+	database.Create(&db.ProviderKey{ProviderID: prov.ID, APIKey: "real"})
+	m := &db.Model{Name: "gpt-x"}
+	database.Create(m)
+	database.Create(&db.ModelChannel{ModelID: m.ID, ProviderID: prov.ID, UpstreamModel: "gpt-x", Priority: 1})
+
+	rl := relay.New(database, logs)
+	dl := auth.DownstreamAuth(database)
+	engine := gin.New()
+	engine.POST("/v1/chat/completions", dl, func(c *gin.Context) { rl.Handle(c, "openai") })
+
+	postJSON(t, engine, "/v1/chat/completions", openaiReq("gpt-x", false))
+	if gotAuth != "Bearer real" {
+		t.Fatalf("残留保留头必须被忽略,实际 Authorization=%q", gotAuth)
+	}
+}

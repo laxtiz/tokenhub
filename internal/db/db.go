@@ -45,6 +45,8 @@ type Provider struct {
 	Type      string    `gorm:"size:16" json:"type"` // openai | anthropic
 	BaseURL   string    `gorm:"size:256" json:"base_url"`
 	Disabled  bool      `json:"disabled"`
+	UserAgent string    `gorm:"size:128" json:"user_agent,omitempty"`    // 覆盖默认 UA，传给上游；空则不设置
+	CustomHeaders string `gorm:"size:2048" json:"custom_headers,omitempty"` // JSON 对象 {"X-Trace-Id":"abc"}，转发给上游；不允许覆盖鉴权头
 	CreatedAt time.Time `json:"created_at"`
 }
 

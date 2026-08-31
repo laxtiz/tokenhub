@@ -342,7 +342,35 @@ func (r *Relay) newUpstreamRequest(ctx context.Context, prov db.Provider, apiKey
 	} else {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
+	applyProviderHeaders(req, prov)
 	return req, nil
+}
+
+// applyProviderHeaders 在标准头设定后覆盖 User-Agent 与附加自定义 headers。
+// 自定义 headers 不能覆盖鉴权头；此处只 Append 未经保护的 key 以保证鉴权优先。
+func applyProviderHeaders(req *http.Request, prov db.Provider) {
+	if ua := strings.TrimSpace(prov.UserAgent); ua != "" {
+		req.Header.Set("User-Agent", ua)
+	}
+	if prov.CustomHeaders == "" {
+		return
+	}
+	var extra map[string]string
+	if err := json.Unmarshal([]byte(prov.CustomHeaders), &extra); err != nil {
+		slog.Warn("provider custom_headers parse failed", "provider_id", prov.ID, "error", err)
+		return
+	}
+	for k, v := range extra {
+		lk := strings.ToLower(k)
+		// 防御性二次校验（admin 层 validateCustomHeaders 已禁过这些，但 DB 旧数据可能遗留）
+		switch lk {
+		case "authorization", "x-api-key", "anthropic-version", "host",
+			"content-length", "content-type", "accept":
+			slog.Warn("custom header ignored (reserved)", "provider_id", prov.ID, "header", lk)
+			continue
+		}
+		req.Header.Set(k, v)
+	}
 }
 
 // ---- 转发 ----

@@ -41,6 +41,12 @@
           </div>
           <div class="field"><span class="k">协议</span><span class="v"><el-tag size="small">{{ row.type }}</el-tag></span></div>
           <div class="field"><span class="k">Base URL</span><span class="v mono">{{ row.base_url }}</span></div>
+          <div class="field" v-if="row.user_agent">
+            <span class="k">UA</span><span class="v mono">{{ row.user_agent }}</span>
+          </div>
+          <div class="field" v-if="row.custom_headers">
+            <span class="k">Headers</span><span class="v mono">{{ row.custom_headers }}</span>
+          </div>
           <div class="field"><span class="k">API Keys</span><span class="v">{{ (row.keys || []).length }} 个</span></div>
           <div class="row-actions">
             <el-button size="small" @click="openProvForm(row)">编辑</el-button>
@@ -68,6 +74,16 @@
             :placeholder="provForm.type === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1'" />
           <div style="font-size:12px;color:#999;line-height:1.6;width:100%">
             OpenAI 兼容地址需含 /v1 后缀（网关内部补 /chat/completions）；Anthropic 兼容地址不带 /v1（网关内部补 /v1/messages）。直接照供应商文档填即可。
+          </div>
+        </el-form-item>
+        <el-form-item label="User-Agent">
+          <el-input v-model="provForm.user_agent" placeholder="留空使用 Go 默认 UA" />
+        </el-form-item>
+        <el-form-item label="自定义 Headers">
+          <el-input v-model="provForm.custom_headers" type="textarea" :rows="4"
+            placeholder='JSON 对象，例如 {"X-Trace-Id":"abc","X-Org":"team-a"}' />
+          <div style="font-size:12px;color:#999;line-height:1.6;width:100%">
+            转发请求时附加这些 header 给上游，最多 32 个。鉴权相关头（Authorization / x-api-key / anthropic-version / Host / Content-Type / Content-Length / Accept）会被忽略。
           </div>
         </el-form-item>
         <el-form-item label="停用"><el-switch v-model="provForm.disabled" /></el-form-item>
@@ -135,7 +151,12 @@ async function load() {
 }
 
 function openProvForm(row) {
-  provForm.value = row ? { ...row } : { name: '', type: 'openai', base_url: '', disabled: false }
+  provForm.value = row
+    ? { ...row }
+    : { name: '', type: 'openai', base_url: '', disabled: false, user_agent: '', custom_headers: '' }
+  // 旧数据可能没这两个字段
+  if (provForm.value.user_agent === undefined) provForm.value.user_agent = ''
+  if (provForm.value.custom_headers === undefined) provForm.value.custom_headers = ''
   provFormVisible.value = true
 }
 

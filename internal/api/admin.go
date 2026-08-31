@@ -2,10 +2,12 @@ package api
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -113,6 +115,10 @@ func (s *Server) createProvider(c *gin.Context) {
 			p.BaseURL = "https://api.openai.com/v1"
 		}
 	}
+	if err := validateCustomHeaders(p.CustomHeaders); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	s.DB.Create(&p)
 	c.JSON(http.StatusOK, p)
 }
@@ -124,9 +130,11 @@ func (s *Server) updateProvider(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Name     *string `json:"name"`
-		BaseURL  *string `json:"base_url"`
-		Disabled *bool   `json:"disabled"`
+		Name          *string `json:"name"`
+		BaseURL       *string `json:"base_url"`
+		Disabled      *bool   `json:"disabled"`
+		UserAgent     *string `json:"user_agent"`
+		CustomHeaders *string `json:"custom_headers"`
 	}
 	_ = c.ShouldBindJSON(&req)
 	updates := map[string]any{}
@@ -139,8 +147,50 @@ func (s *Server) updateProvider(c *gin.Context) {
 	if req.Disabled != nil {
 		updates["disabled"] = *req.Disabled
 	}
+	if req.UserAgent != nil {
+		updates["user_agent"] = *req.UserAgent
+	}
+	if req.CustomHeaders != nil {
+		if err := validateCustomHeaders(*req.CustomHeaders); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		updates["custom_headers"] = *req.CustomHeaders
+	}
 	s.DB.Model(&p).Updates(updates)
 	c.JSON(http.StatusOK, p)
+}
+
+// validateCustomHeaders 校验 custom_headers：必须是合法 JSON object，
+// 且不能包含鉴权头（authorization / x-api-key / anthropic-version）以避免被覆盖绕鉴权。
+func validateCustomHeaders(raw string) error {
+	if raw == "" {
+		return nil
+	}
+	var m map[string]string
+	if err := json.Unmarshal([]byte(raw), &m); err != nil {
+		return fmt.Errorf("custom_headers 不是合法 JSON 对象: %v", err)
+	}
+	if len(m) > 32 {
+		return fmt.Errorf("custom_headers 最多 32 个")
+	}
+	for k, v := range m {
+		if k == "" {
+			return fmt.Errorf("custom_headers key 不能为空")
+		}
+		if strings.ContainsAny(k, ":\r\n") {
+			return fmt.Errorf("custom_headers key 含非法字符: %q", k)
+		}
+		if strings.ContainsAny(v, "\r\n") {
+			return fmt.Errorf("custom_headers value 含换行: %q", k)
+		}
+		lk := strings.ToLower(k)
+		switch lk {
+		case "authorization", "x-api-key", "anthropic-version", "host", "content-length", "content-type", "accept":
+			return fmt.Errorf("custom_headers 不允许覆盖 %q", lk)
+		}
+	}
+	return nil
 }
 
 func (s *Server) deleteProvider(c *gin.Context) {
