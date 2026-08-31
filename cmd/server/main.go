@@ -142,7 +142,7 @@ func seedAdmin(g *gorm.DB, cfg *config.Config) {
 	}
 	hash, _ := bcrypt.GenerateFromPassword([]byte(cfg.AdminPassword), bcrypt.DefaultCost)
 	admin := &db.User{Username: cfg.AdminUsername, PasswordHash: string(hash), Role: "admin"}
-	if err := g.Create(admin).Error; err == nil {
-		g.Create(&db.User{Username: "demo", PasswordHash: string(hash), Role: "user"})
+	if err := g.Create(admin).Error; err != nil {
+		slog.Error("创建管理员失败", "err", err)
 	}
 }
