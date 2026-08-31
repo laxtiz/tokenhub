@@ -19,11 +19,16 @@
           <div class="cmd-line indent">
             <span class="flag">--password</span>
             <el-input v-model="password" type="password" show-password />
+            <span class="cont">↵</span>
           </div>
-          <button type="submit" class="verify-line" :disabled="loading">
-            <span class="green">$</span>tokenhub auth verify<span class="cursor"></span>
+          <div class="cmd-line">
+            <span class="green">$</span>
+            <button type="submit" class="verify-btn" :disabled="loading">
+              tokenhub auth verify
+            </button>
+            <span class="cursor"></span>
             <span v-if="loading" class="dim">&nbsp;running...</span>
-          </button>
+          </div>
         </form>
       </div>
     </div>
@@ -118,10 +123,12 @@ async function doLogin() {
 }
 
 /* verify 提交：一行终端命令文本，可点击 */
-.verify-line {
-  display: inline-flex; align-items: center; gap: 8px;
-  margin-top: 14px;
-  padding: 2px 4px;
+.verify-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 0px;
+  padding: 0px 0px;
   background: none;
   border: none;
   color: var(--th-fg);
@@ -131,6 +138,6 @@ async function doLogin() {
   border-radius: 3px;
   transition: background 0.12s;
 }
-.verify-line:hover { background: rgba(74, 222, 128, 0.08); }
-.verify-line:disabled { opacity: 0.6; cursor: wait; }
+.verify-btn:hover { background: rgba(74, 222, 128, 0.08); }
+.verify-btn:disabled { opacity: 0.6; cursor: wait; }
 </style>
