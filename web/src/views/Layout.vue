@@ -5,13 +5,13 @@
         <span></span><span></span><span></span>
       </button>
       <div class="topbar-brand">
-        <span class="prompt">$</span> tokenhub<span class="cursor"></span>
+        <span class="prompt">$</span>tokenhub<span class="cursor"></span>
       </div>
     </header>
 
     <aside class="side" :class="{ open: drawerOpen }">
       <div class="brand">
-        <span class="prompt">$</span> tokenhub<span class="cursor"></span>
+        <span class="prompt">$</span>tokenhub<span class="cursor"></span>
       </div>
 
       <nav class="nav" @click="drawerOpen = false">
@@ -138,7 +138,9 @@ function onCmd(cmd) {
   border-right: 1px solid var(--th-border);
 }
 .brand {
+  display: flex;
   padding: 18px 16px 14px;
+  gap: 8px;
   font-size: 14px;
   font-weight: 600;
   color: var(--th-fg);
@@ -212,6 +214,8 @@ function onCmd(cmd) {
   border-radius: 1px;
 }
 .topbar-brand {
+  display: flex;
+  gap: 8px;
   font-size: 13px;
   font-weight: 600;
   color: var(--th-fg);

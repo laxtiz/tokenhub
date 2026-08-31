@@ -69,11 +69,11 @@
       </template>
       <div class="examples">
         <div class="ex-block">
-          <div class="ex-title">OpenAI 兼容</div>
+          <div class="ex-title">OpenAI 接入地址</div>
           <pre class="ex-code">{{ examples.openai }}</pre>
         </div>
         <div class="ex-block">
-          <div class="ex-title">Anthropic 兼容</div>
+          <div class="ex-title">Anthropic 接入地址</div>
           <pre class="ex-code">{{ examples.anthropic }}</pre>
         </div>
         <div class="ex-block">
@@ -92,7 +92,7 @@
       </template>
       <div class="examples">
         <div class="ex-block">
-          <div class="ex-title">MCP URL</div>
+          <div class="ex-title">MCP 接入地址</div>
           <pre class="ex-code">{{ host }}/mcp</pre>
         </div>
         <div class="ex-block">
@@ -118,14 +118,13 @@ const fmtTime = (t) => (t ? t.slice(0, 16).replace('T', ' ') : '-')
 const host = window.location.origin
 
 const examples = computed(() => {
-  const key = newPlain.value || 'th-你的key'
+  const key = newPlain.value || '<TOKENHUB_API_KEY>'
   return {
-    openai: `base_url = ${host}/v1`,
+    openai: `${host}/v1`,
 
-    anthropic: `base_url = ${host}`,
+    anthropic: `${host}`,
 
-    models: `curl ${host}/v1/models \
-  -H "Authorization: Bearer ${key}"`,
+    models: `curl -H "Authorization: Bearer ${key}" ${host}/v1/models`,
 
     mcpClient: `{
   "mcpServers": {
