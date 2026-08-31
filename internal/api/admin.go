@@ -215,13 +215,14 @@ func (s *Server) createProviderKey(c *gin.Context) {
 		return
 	}
 	var req struct {
+		Name   string `json:"name"`
 		APIKey string `json:"api_key" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "api_key 必填"})
 		return
 	}
-	k := &db.ProviderKey{ProviderID: prov.ID, APIKey: req.APIKey}
+	k := &db.ProviderKey{ProviderID: prov.ID, Name: req.Name, APIKey: req.APIKey}
 	s.DB.Create(k)
 	c.JSON(http.StatusOK, k)
 }
@@ -234,6 +235,7 @@ func (s *Server) updateProviderKey(c *gin.Context) {
 	}
 	var req struct {
 		Status *string `json:"status"`
+		Name   *string `json:"name"`
 		APIKey *string `json:"api_key"`
 	}
 	_ = c.ShouldBindJSON(&req)
@@ -242,6 +244,9 @@ func (s *Server) updateProviderKey(c *gin.Context) {
 		updates["status"] = *req.Status
 		updates["consecutive_fails"] = 0
 		updates["cooldown_until"] = nil
+	}
+	if req.Name != nil {
+		updates["name"] = *req.Name
 	}
 	if req.APIKey != nil && *req.APIKey != "" {
 		updates["api_key"] = *req.APIKey

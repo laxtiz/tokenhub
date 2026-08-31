@@ -53,6 +53,7 @@ type Provider struct {
 type ProviderKey struct {
 	ID               uint       `gorm:"primaryKey" json:"id"`
 	ProviderID       uint       `gorm:"index" json:"provider_id"`
+	Name             string     `gorm:"size:128" json:"name"` // 备注名，便于在管理台区分同一 provider 下的多个 Key
 	APIKey           string     `gorm:"size:256" json:"api_key"`
 	Status           string     `gorm:"size:16;default:active" json:"status"` // active | rate_limited | invalid | disabled
 	CooldownUntil    *time.Time `json:"cooldown_until"`

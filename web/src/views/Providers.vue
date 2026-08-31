@@ -60,8 +60,8 @@
     </el-card>
 
     <!-- 供应商表单 -->
-    <el-dialog v-model="provFormVisible" :title="provForm.id ? '编辑供应商' : '新建供应商'" width="480px">
-      <el-form :model="provForm" label-width="90px">
+    <el-dialog v-model="provFormVisible" :title="provForm.id ? '编辑供应商' : '新建供应商'" width="540px">
+      <el-form :model="provForm" label-width="120px">
         <el-form-item label="名称"><el-input v-model="provForm.name" /></el-form-item>
         <el-form-item label="协议">
           <el-select v-model="provForm.type" :disabled="!!provForm.id">
@@ -72,19 +72,13 @@
         <el-form-item label="Base URL">
           <el-input v-model="provForm.base_url"
             :placeholder="provForm.type === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1'" />
-          <div style="font-size:12px;color:#999;line-height:1.6;width:100%">
-            OpenAI 兼容地址需含 /v1 后缀（网关内部补 /chat/completions）；Anthropic 兼容地址不带 /v1（网关内部补 /v1/messages）。直接照供应商文档填即可。
-          </div>
         </el-form-item>
         <el-form-item label="User-Agent">
           <el-input v-model="provForm.user_agent" placeholder="留空使用 Go 默认 UA" />
         </el-form-item>
-        <el-form-item label="自定义 Headers">
+        <el-form-item label="Headers">
           <el-input v-model="provForm.custom_headers" type="textarea" :rows="4"
-            placeholder='JSON 对象，例如 {"X-Trace-Id":"abc","X-Org":"team-a"}' />
-          <div style="font-size:12px;color:#999;line-height:1.6;width:100%">
-            转发请求时附加这些 header 给上游，最多 32 个。鉴权相关头（Authorization / x-api-key / anthropic-version / Host / Content-Type / Content-Length / Accept）会被忽略。
-          </div>
+            placeholder='{"X-Trace-Id":"abc","X-Org":"team-a"}' />
         </el-form-item>
         <el-form-item label="停用"><el-switch v-model="provForm.disabled" /></el-form-item>
       </el-form>
@@ -97,10 +91,24 @@
     <!-- Key 管理 -->
     <el-dialog v-model="keysVisible" :title="`API Keys - ${current?.name}`" width="760px">
       <div style="display:flex;gap:8px;margin-bottom:10px">
+        <el-input v-model="newKeyName" placeholder="名称（可选）" style="width:200px" />
         <el-input v-model="newKey" placeholder="粘贴上游 API Key" style="width:380px" show-password />
-        <el-button type="primary" @click="addKey">添加</el-button>
+        <el-button type="primary" @click="addKey" :disabled="!newKey">添加</el-button>
       </div>
       <el-table :data="keys" size="small">
+        <el-table-column label="名称" width="180">
+          <template #default="{ row }">
+            <template v-if="editingKeyId === row.id">
+              <el-input v-model="editingKeyName" size="small" placeholder="名称" @keyup.enter="saveKeyName(row)" />
+              <el-button size="small" type="primary" link @click="saveKeyName(row)">保存</el-button>
+              <el-button size="small" link @click="cancelEditKeyName">取消</el-button>
+            </template>
+            <template v-else>
+              <span :class="{ 'name-empty': !row.name }">{{ row.name || '未命名' }}</span>
+              <el-button size="small" link @click="startEditKeyName(row)">编辑</el-button>
+            </template>
+          </template>
+        </el-table-column>
         <el-table-column label="Key" min-width="200">
           <template #default="{ row }">
             <span style="font-family:monospace">{{ mask(row.api_key) }}</span>
@@ -141,7 +149,10 @@ const keysVisible = ref(false)
 const current = ref(null)
 const keys = ref([])
 const newKey = ref('')
+const newKeyName = ref('')
 const testing = ref(null)
+const editingKeyId = ref(null)
+const editingKeyName = ref('')
 
 const mask = (k) => (k && k.length > 12 ? k.slice(0, 6) + '****' + k.slice(-4) : k)
 const keyTagType = (s) => ({ active: 'success', rate_limited: 'warning', invalid: 'danger', disabled: 'info' }[s] || '')
@@ -183,15 +194,43 @@ async function removeProvider(row) {
 function openKeys(row) {
   current.value = row
   keys.value = row.keys || []
+  newKey.value = ''
+  newKeyName.value = ''
+  editingKeyId.value = null
   keysVisible.value = true
 }
 
 async function addKey() {
   if (!newKey.value) return
   try {
-    await post(`/api/admin/providers/${current.value.id}/keys`, { api_key: newKey.value })
+    await post(`/api/admin/providers/${current.value.id}/keys`, {
+      name: newKeyName.value,
+      api_key: newKey.value
+    })
     newKey.value = ''
+    newKeyName.value = ''
     ElMessage.success('已添加')
+    await load()
+    keys.value = providers.value.find(p => p.id === current.value.id)?.keys || []
+  } catch (e) { ElMessage.error(e.message) }
+}
+
+function startEditKeyName(row) {
+  editingKeyId.value = row.id
+  editingKeyName.value = row.name || ''
+}
+
+function cancelEditKeyName() {
+  editingKeyId.value = null
+  editingKeyName.value = ''
+}
+
+async function saveKeyName(row) {
+  const name = editingKeyName.value
+  try {
+    await patch(`/api/admin/provider-keys/${row.id}`, { name })
+    editingKeyId.value = null
+    ElMessage.success('已保存')
     await load()
     keys.value = providers.value.find(p => p.id === current.value.id)?.keys || []
   } catch (e) { ElMessage.error(e.message) }
@@ -223,3 +262,7 @@ async function removeKey(row) {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.name-empty { color: var(--el-text-color-secondary); font-style: italic; }
+</style>
