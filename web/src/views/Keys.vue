@@ -2,7 +2,7 @@
   <div>
     <el-card>
       <template #header>
-        <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-head-flex">
           <span>我的 API Key</span>
           <el-button type="primary" @click="createKey">新建 Key</el-button>
         </div>

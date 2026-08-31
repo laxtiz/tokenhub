@@ -2,7 +2,7 @@
   <div>
     <el-card>
       <template #header>
-        <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-head-flex">
           <span>{{ isAdmin ? '模型与渠道管理' : '模型列表' }}</span>
           <el-button v-if="isAdmin" type="primary" @click="openEdit(null)">新建模型</el-button>
         </div>

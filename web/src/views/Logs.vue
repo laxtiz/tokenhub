@@ -2,7 +2,7 @@
   <div>
     <el-card>
       <template #header>
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div class="card-head-flex">
           <span>{{ isAdmin ? '全站请求日志' : '我的请求日志' }}</span>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <el-input v-model="q.trace_id" placeholder="Trace ID" clearable style="width:220px" @keyup.enter="load" />

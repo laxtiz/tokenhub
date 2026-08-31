@@ -2,7 +2,7 @@
   <div>
     <el-card>
       <template #header>
-        <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-head-flex">
           <span>供应商管理</span>
           <el-button type="primary" @click="openProvForm(null)">新建供应商</el-button>
         </div>

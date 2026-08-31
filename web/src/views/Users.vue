@@ -2,7 +2,7 @@
   <div>
     <el-card>
       <template #header>
-        <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-head-flex">
           <span>用户管理</span>
           <el-button type="primary" @click="openForm(null)">新建用户</el-button>
         </div>
