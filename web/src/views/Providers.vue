@@ -89,24 +89,16 @@
     </el-dialog>
 
     <!-- Key 管理 -->
-    <el-dialog v-model="keysVisible" :title="`API Keys - ${current?.name}`" width="760px">
+    <el-dialog v-model="keysVisible" :title="`API Keys - ${current?.name}`" width="1000px">
       <div style="display:flex;gap:8px;margin-bottom:10px">
         <el-input v-model="newKeyName" placeholder="名称（可选）" style="width:200px" />
         <el-input v-model="newKey" placeholder="粘贴上游 API Key" style="width:380px" show-password />
         <el-button type="primary" @click="addKey" :disabled="!newKey">添加</el-button>
       </div>
       <el-table :data="keys" size="small">
-        <el-table-column label="名称" width="180">
+        <el-table-column label="名称" width="140">
           <template #default="{ row }">
-            <template v-if="editingKeyId === row.id">
-              <el-input v-model="editingKeyName" size="small" placeholder="名称" @keyup.enter="saveKeyName(row)" />
-              <el-button size="small" type="primary" link @click="saveKeyName(row)">保存</el-button>
-              <el-button size="small" link @click="cancelEditKeyName">取消</el-button>
-            </template>
-            <template v-else>
-              <span :class="{ 'name-empty': !row.name }">{{ row.name || '未命名' }}</span>
-              <el-button size="small" link @click="startEditKeyName(row)">编辑</el-button>
-            </template>
+            <span :class="{ 'name-empty': !row.name }">{{ row.name || '未命名' }}</span>
           </template>
         </el-table-column>
         <el-table-column label="Key" min-width="200">
@@ -124,8 +116,8 @@
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button size="small" :loading="testing === row.id" @click="testKey(row)">测试</el-button>
-            <el-button size="small" :type="row.disabled ? 'success' : 'warning'" @click="toggleKey(row)">
-              {{ row.disabled ? '启用' : '禁用' }}
+            <el-button size="small" :type="row.status === 'disabled' ? 'success' : 'warning'" @click="toggleKey(row)">
+              {{ row.status === 'disabled' ? '启用' : '禁用' }}
             </el-button>
             <el-popconfirm title="确认删除？" @confirm="removeKey(row)">
               <template #reference><el-button size="small" type="danger">删除</el-button></template>
@@ -151,8 +143,6 @@ const keys = ref([])
 const newKey = ref('')
 const newKeyName = ref('')
 const testing = ref(null)
-const editingKeyId = ref(null)
-const editingKeyName = ref('')
 
 const mask = (k) => (k && k.length > 12 ? k.slice(0, 6) + '****' + k.slice(-4) : k)
 const keyTagType = (s) => ({ active: 'success', rate_limited: 'warning', invalid: 'danger', disabled: 'info' }[s] || '')
@@ -196,7 +186,6 @@ function openKeys(row) {
   keys.value = row.keys || []
   newKey.value = ''
   newKeyName.value = ''
-  editingKeyId.value = null
   keysVisible.value = true
 }
 
@@ -215,27 +204,6 @@ async function addKey() {
   } catch (e) { ElMessage.error(e.message) }
 }
 
-function startEditKeyName(row) {
-  editingKeyId.value = row.id
-  editingKeyName.value = row.name || ''
-}
-
-function cancelEditKeyName() {
-  editingKeyId.value = null
-  editingKeyName.value = ''
-}
-
-async function saveKeyName(row) {
-  const name = editingKeyName.value
-  try {
-    await patch(`/api/admin/provider-keys/${row.id}`, { name })
-    editingKeyId.value = null
-    ElMessage.success('已保存')
-    await load()
-    keys.value = providers.value.find(p => p.id === current.value.id)?.keys || []
-  } catch (e) { ElMessage.error(e.message) }
-}
-
 async function testKey(row) {
   testing.value = row.id
   try {
@@ -249,7 +217,8 @@ async function testKey(row) {
 }
 
 async function toggleKey(row) {
-  await patch(`/api/admin/provider-keys/${row.id}`, { status: row.disabled ? 'active' : 'disabled' })
+  const next = row.status === 'disabled' ? 'active' : 'disabled'
+  await patch(`/api/admin/provider-keys/${row.id}`, { status: next })
   await load()
   keys.value = providers.value.find(p => p.id === current.value.id)?.keys || []
 }
