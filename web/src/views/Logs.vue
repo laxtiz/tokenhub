@@ -42,6 +42,20 @@
         </el-table-column>
         <el-table-column prop="error" label="错误" min-width="140" show-overflow-tooltip />
       </el-table>
+      <div class="card-list">
+        <div v-for="row in items" :key="row.trace_id" class="card-row">
+          <div class="row-head">
+            <span class="row-title mono" :title="row.trace_id" @click="openTrace(row.trace_id)" style="cursor:pointer">{{ shortTrace(row.trace_id) }}</span>
+            <el-tag size="small" :type="row.status === 200 ? 'success' : 'danger'">{{ row.status }}</el-tag>
+          </div>
+          <div v-if="isAdmin" class="field"><span class="k">用户</span><span class="v">{{ row.username }}</span></div>
+          <div class="field"><span class="k">模型</span><span class="v mono">{{ row.model }}</span></div>
+          <div class="field"><span class="k">输入 / 输出</span><span class="v">{{ row.prompt_tokens }} / {{ row.completion_tokens }}</span></div>
+          <div class="field"><span class="k">费用</span><span class="v">${{ (row.cost || 0).toFixed(6) }}</span></div>
+          <div class="field"><span class="k">时间</span><span class="v">{{ fmtTime(row.created_at) }}</span></div>
+          <div v-if="row.error" class="field"><span class="k">错误</span><span class="v">{{ row.error }}</span></div>
+        </div>
+      </div>
       <el-pagination style="margin-top:12px" layout="prev, pager, next, total" :total="total"
         :page-size="q.size" v-model:current-page="q.page" @current-change="load" />
     </el-card>

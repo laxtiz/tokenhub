@@ -177,3 +177,36 @@ body {
 /* ---- 通用 ---- */
 .page { display: flex; flex-direction: column; gap: 14px; }
 .card-head-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+
+/* ---- 移动端：表格 → 卡片列表 ---- */
+@media (max-width: 768px) {
+  .el-table { display: none; }
+  .card-list { display: flex; flex-direction: column; gap: 10px; }
+  .card-row {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 12px 14px;
+    border: 1px solid var(--th-border);
+    border-radius: 6px;
+    background: var(--th-panel);
+  }
+  .card-row .row-head {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 8px; flex-wrap: wrap;
+  }
+  .card-row .row-head .row-title {
+    font-size: 13px; font-weight: 600; color: var(--th-fg);
+  }
+  .card-row .field {
+    display: flex; justify-content: space-between; gap: 12px;
+    font-size: 12px; line-height: 1.7;
+  }
+  .card-row .field .k { color: var(--th-fg-dim); flex-shrink: 0; }
+  .card-row .field .v { color: var(--th-fg); text-align: right; word-break: break-all; }
+  .card-row .row-actions {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;
+  }
+  .card-row .row-actions .el-button { margin-left: 0 !important; }
+}
+@media (min-width: 769px) {
+  .card-list { display: none; }
+}

@@ -1,11 +1,20 @@
 <template>
-  <div class="shell">
-    <aside class="side">
+  <div class="shell" :class="{ 'is-mobile': isMobile }">
+    <header v-if="isMobile" class="topbar">
+      <button class="hamburger" aria-label="menu" @click="drawerOpen = true">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="topbar-brand">
+        <span class="prompt">$</span> tokenhub<span class="cursor"></span>
+      </div>
+    </header>
+
+    <aside class="side" :class="{ open: drawerOpen }">
       <div class="brand">
         <span class="prompt">$</span> tokenhub<span class="cursor"></span>
       </div>
 
-      <nav class="nav">
+      <nav class="nav" @click="drawerOpen = false">
         <template v-for="group in navGroups" :key="group.label">
           <div v-if="group.items.length" class="nav-group"># {{ group.label }}</div>
           <RouterLink
@@ -36,6 +45,8 @@
       </div>
     </aside>
 
+    <div v-if="isMobile && drawerOpen" class="drawer-mask" @click="drawerOpen = false" />
+
     <main class="main">
       <div class="content">
         <RouterView />
@@ -56,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { get, post, clearToken } from '../api'
@@ -65,6 +76,13 @@ const user = ref(null)
 const router = useRouter()
 const pwdVisible = ref(false)
 const pwd = ref({ old_password: '', new_password: '' })
+const isMobile = ref(false)
+const drawerOpen = ref(false)
+
+function syncViewport() {
+  isMobile.value = window.innerWidth <= 768
+  if (!isMobile.value) drawerOpen.value = false
+}
 
 const navGroups = computed(() => {
   const admin = user.value?.role === 'admin'
@@ -86,6 +104,12 @@ const navGroups = computed(() => {
 
 onMounted(async () => {
   try { user.value = await get('/api/me') } catch {}
+  syncViewport()
+  window.addEventListener('resize', syncViewport)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncViewport)
 })
 
 async function changePwd() {
@@ -155,4 +179,63 @@ function onCmd(cmd) {
 
 .main { flex: 1; overflow-y: auto; padding: 24px 28px; }
 .content { max-width: 1200px; margin: 0 auto; }
+
+/* ---- 移动端：侧边栏改为抽屉 ---- */
+.topbar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  height: 48px;
+  padding: 0 12px;
+  background: #080b0d;
+  border-bottom: 1px solid var(--th-border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.hamburger {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 36px; height: 36px;
+  padding: 8px;
+  background: transparent;
+  border: 1px solid var(--th-border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.hamburger span {
+  display: block;
+  height: 2px;
+  background: var(--th-fg);
+  border-radius: 1px;
+}
+.topbar-brand {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--th-fg);
+}
+
+.shell.is-mobile { flex-direction: column; height: 100vh; }
+.shell.is-mobile .main { padding: 14px 14px; }
+.shell.is-mobile .side {
+  position: fixed;
+  top: 0; left: 0;
+  height: 100vh;
+  z-index: 30;
+  width: 240px;
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+}
+.shell.is-mobile .side.open { transform: translateX(0); }
+.drawer-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 25;
+}
+@media (max-width: 768px) {
+  .topbar { display: flex; }
+}
 </style>

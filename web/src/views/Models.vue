@@ -37,6 +37,31 @@
           </template>
         </el-table-column>
       </el-table>
+      <div class="card-list">
+        <div v-for="row in models" :key="row.id" class="card-row">
+          <div class="row-head">
+            <span class="row-title">{{ row.name }}</span>
+            <span style="display:flex;gap:4px;flex-wrap:wrap">
+              <el-tag v-if="row.support_vision" size="small">视觉</el-tag>
+              <el-tag v-if="row.support_tools" size="small" type="success">工具</el-tag>
+              <el-tag v-if="row.support_reasoning" size="small" type="warning">推理</el-tag>
+              <el-tag v-if="row.disabled" size="small" type="danger">停用</el-tag>
+            </span>
+          </div>
+          <div v-if="row.display_name" class="field"><span class="k">显示名</span><span class="v">{{ row.display_name }}</span></div>
+          <div v-if="row.context_length" class="field"><span class="k">上下文</span><span class="v">{{ row.context_length }}</span></div>
+          <div class="field"><span class="k">输入/输出</span><span class="v">${{ row.input_price }} / ${{ row.output_price }}</span></div>
+          <div class="field"><span class="k">缓存读/写</span><span class="v">${{ row.cache_read_price }} / ${{ row.cache_write_price }}</span></div>
+          <div v-if="isAdmin" class="field"><span class="k">上游渠道</span><span class="v">{{ (row.channels || []).length }} 个</span></div>
+          <div v-if="isAdmin" class="row-actions">
+            <el-button size="small" @click="openEdit(row)">编辑</el-button>
+            <el-button size="small" @click="openChannel(row)">渠道</el-button>
+            <el-popconfirm title="确认删除？" @confirm="removeModel(row)">
+              <template #reference><el-button size="small" type="danger">删除</el-button></template>
+            </el-popconfirm>
+          </div>
+        </div>
+      </div>
     </el-card>
 
     <!-- 模型编辑 -->
