@@ -17,6 +17,7 @@
 - **全链路追踪**：下游请求日志与上游调用日志分表存储，不记录正文内容；按 trace_id 查看完整调用链（每次尝试的供应商、Key、状态码、错误类型、tokens、耗时）
 - **用户体系**：用户自助创建/删除下游 Key（明文仅创建时返回一次）、查看模型列表与价格、查询自己的日志与用量统计
 - **管理后台**：供应商与 Key 管理（含 Key 连通性测试）、模型/属性/价格/渠道映射管理、用户管理、全站日志与调用链、全站用量统计
+- **MCP 服务器**：`POST /mcp`（Streamable HTTP），让用户在自己的 AI Agent 中以 `Bearer th-xxx` 接入网关查询自己的数据，6 个只读工具按 user 隔离
 
 ## 快速开始
 
@@ -53,6 +54,44 @@ curl http://localhost:8080/v1/messages \
   -d '{"model":"gpt-mock","max_tokens":1024,"messages":[{"role":"user","content":"hi"}]}'
 ```
 
+### MCP 接入（让 Agent 查你的网关数据）
+
+TokenHub 在 `/mcp` 暴露一个 MCP（Model Context Protocol）服务器，用户可用自己创建的**下游 Key** 在 Claude Desktop / Cline / Cursor 等客户端接入。**所有工具都只读，且只返回当前 Key 所属用户的数据。**
+
+可用的 6 个工具：
+
+| 工具 | 用途 |
+|---|---|
+| `list_models` | 列出所有可用模型与元属性/价格 |
+| `list_my_keys` | 列出自己的下游 Key（不含明文/哈希） |
+| `list_my_logs` | 分页查询自己的请求日志（按 model/status/days/trace_id 过滤） |
+| `get_trace_detail` | 查询单次调用的完整 trace（下游 + 所有上游尝试） |
+| `get_my_stats` | 按天聚合用量 + 按模型 TOP |
+| `get_my_account` | 返回当前用户账号信息（用户名、角色、累计消费） |
+
+客户端配置示例（Claude Desktop `claude_desktop_config.json` / Cline / Cursor 等通用）：
+
+```json
+{
+  "mcpServers": {
+    "tokenhub": {
+      "url": "https://your-host/mcp",
+      "headers": { "Authorization": "Bearer th-你的key" }
+    }
+  }
+}
+```
+
+用 curl 验证握手：
+
+```bash
+curl -X POST https://your-host/mcp \
+  -H "Authorization: Bearer th-xxxx" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{}}}'
+```
+
 ## 环境变量
 
 | 变量 | 默认值 | 说明 |
@@ -75,6 +114,7 @@ internal/
   relay/             网关核心：渠道降级、Key 轮询、流式转发、重试
   billing/           计费（含缓存 token 单独计价）
   api/               管理/用户 REST API
+  mcp/               MCP 服务器：6 个工具（只读，按 user 隔离）+ Streamable HTTP transport
   web/               嵌入的 Vue3 管理台（go:embed）
 web/                 Vue3 + Element Plus 前端源码
 ```
@@ -87,6 +127,7 @@ go test ./...
 
 - `internal/convert`：请求/响应/流式转换的单元测试（含双向 round-trip）
 - `internal/relay`：基于 httptest mock 上游的端到端测试，覆盖透传、跨协议转换、流式转换、Key 轮询（401/429）、渠道降级、鉴权失败、未知模型
+- `internal/mcp`：MCP 协议握手、`tools/list`、6 个工具 happy path、user 隔离与越权防护
 
 ## 设计说明
 

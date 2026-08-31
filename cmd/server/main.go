@@ -14,6 +14,7 @@ import (
 	"tokenhub/internal/auth"
 	"tokenhub/internal/config"
 	"tokenhub/internal/db"
+	mcpserver "tokenhub/internal/mcp"
 	"tokenhub/internal/relay"
 	"tokenhub/internal/web"
 )
@@ -51,6 +52,9 @@ func main() {
 	r.POST("/v1/chat/completions", dl, func(c *gin.Context) { rl.Handle(c, "openai") })
 	r.POST("/v1/messages", dl, func(c *gin.Context) { rl.Handle(c, "anthropic") })
 	r.GET("/v1/models", dl, gatewayModels(database))
+
+	// ---- MCP 服务器（Streamable HTTP，agent 用下游 Key 接入） ----
+	r.Any("/mcp", mcpserver.Handler(database))
 
 	// ---- Web 管理台（嵌入静态资源） ----
 	r.NoRoute(web.Handler())

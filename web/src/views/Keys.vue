@@ -75,6 +75,23 @@
           <pre class="ex-code">{{ examples.models }}</pre>
         </div>
       </div>
+
+      <el-divider />
+      <h4>MCP 接入指南（让 AI Agent 查询你的数据）</h4>
+      <p style="color:var(--th-fg-dim);font-size:12px;margin:0 0 12px">
+        TokenHub 提供 6 个只读工具：<code>list_models</code>、<code>list_my_keys</code>、<code>list_my_logs</code>、<code>get_trace_detail</code>、<code>get_my_stats</code>、<code>get_my_account</code>。
+        Agent 通过 <code>Authorization: Bearer th-xxx</code> 接入，只能看到该 Key 所属用户的数据。
+      </p>
+      <div class="examples">
+        <div class="ex-block">
+          <div class="ex-title">Claude Desktop / Cline / Cursor 等</div>
+          <pre class="ex-code">{{ examples.mcpClient }}</pre>
+        </div>
+        <div class="ex-block">
+          <div class="ex-title">用 curl 验证握手</div>
+          <pre class="ex-code">{{ examples.mcpCurl }}</pre>
+        </div>
+      </div>
     </el-card>
   </div>
 </template>
@@ -100,7 +117,32 @@ const examples = computed(() => {
     anthropic: `base_url = ${host}`,
 
     models: `curl ${host}/v1/models \
-  -H "Authorization: Bearer ${key}"`
+  -H "Authorization: Bearer ${key}"`,
+
+    mcpClient: `{
+  "mcpServers": {
+    "tokenhub": {
+      "url": "${host}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${key}"
+      }
+    }
+  }
+}`,
+
+    mcpCurl: `# initialize 握手
+curl -X POST ${host}/mcp \\
+  -H "Authorization: Bearer ${key}" \\
+  -H "Content-Type: application/json" \\
+  -H "Accept: application/json, text/event-stream" \\
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{}}}'
+
+# 列出可用工具
+curl -X POST ${host}/mcp \\
+  -H "Authorization: Bearer ${key}" \\
+  -H "Content-Type: application/json" \\
+  -H "Accept: application/json, text/event-stream" \\
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'`
   }
 })
 
