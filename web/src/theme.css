@@ -70,6 +70,9 @@ body {
   color: var(--th-fg);
 }
 .el-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   border-bottom: 1px solid var(--th-border);
   padding: 11px 16px;
   font-weight: 600;
@@ -80,8 +83,10 @@ body {
 .el-card__header::before {
   content: '▍';
   color: var(--th-green);
-  margin-right: 7px;
+  flex: 0 0 auto;
+  line-height: 1;
 }
+.el-card__header > * { min-width: 0; }
 .el-card__body { padding: 14px 16px; }
 
 /* ---- 表格 ---- */
@@ -176,7 +181,7 @@ body {
 
 /* ---- 通用 ---- */
 .page { display: flex; flex-direction: column; gap: 14px; }
-.card-head-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.card-head-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; flex: 1 1 auto; }
 
 /* ---- 移动端：表格 → 卡片列表 ---- */
 @media (max-width: 768px) {
