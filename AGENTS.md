@@ -33,6 +33,7 @@ internal/convert      OpenAI ↔ Anthropic conversion: request, non-stream respo
 internal/relay        gateway core: channel fallback by priority, key rotation, streaming forward, retry logic
 internal/billing      single Cost() function — cache-token pricing
 internal/api          admin/user REST handlers (handlers.go, admin.go)
+internal/mcp          Streamable HTTP MCP server: 6 read-only tools exposed at /mcp, reuses internal/auth.DownstreamAuth so clients authenticate with a downstream API key (Bearer th-xxx); identity is injected via context.Value to tool handlers (server.go, transport.go, tools.go)
 internal/web          go:embed all:dist — the built admin UI; dist is a build artifact, not committed
 web/                  Vue3 frontend source (src/api.js centralizes API calls; views in src/views/)
 mise.toml             mise: go/node versions, loads .env from repo root (template .env.example, gitignored), task chain build-web → build/test → serve
@@ -41,7 +42,7 @@ mise.toml             mise: go/node versions, loads .env from repo root (templat
 ## Architecture rules
 
 - `internal/convert` is pure: no db/GORM/gin dependencies, operates on its own types in `types.go`. Keep it that way; its tests include bidirectional round-trips.
-- Only `internal/relay` talks to upstream providers. It imports convert, billing, db. `internal/api` must never call upstreams directly.
+- Only `internal/relay` talks to upstream providers. It imports convert, billing, db. `internal/api` and `internal/mcp` must never call upstreams; `internal/mcp` is read-only and only reads from db, scoped to the caller's user_id.
 - New GORM models/migrations go in `internal/db`; `LogWriter` is the only path for writing request/upstream log rows.
 
 ## Invariants (don't break these)
