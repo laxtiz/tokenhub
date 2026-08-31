@@ -45,6 +45,17 @@
           <template #default="{ row }"><span class="mono">${{ (row.cost || 0).toFixed(6) }}</span></template>
         </el-table-column>
       </el-table>
+      <div class="card-list">
+        <div v-for="row in daily" :key="row.day" class="card-row">
+          <div class="row-head">
+            <span class="row-title">{{ row.day }}</span>
+            <span class="mono">${{ (row.cost || 0).toFixed(6) }}</span>
+          </div>
+          <div class="field"><span class="k">请求数</span><span class="v">{{ fmt(row.requests) }}</span></div>
+          <div class="field"><span class="k">输入 / 输出</span><span class="v">{{ fmt(row.prompt_tokens) }} / {{ fmt(row.completion_tokens) }}</span></div>
+          <div class="field"><span class="k">缓存读 / 写</span><span class="v">{{ fmt(row.cache_read_tokens) }} / {{ fmt(row.cache_write_tokens) }}</span></div>
+        </div>
+      </div>
     </el-card>
 
     <el-card>
@@ -58,6 +69,15 @@
           <template #default="{ row }"><span class="mono">${{ (row.cost || 0).toFixed(6) }}</span></template>
         </el-table-column>
       </el-table>
+      <div class="card-list">
+        <div v-for="row in byModel" :key="row.model" class="card-row">
+          <div class="row-head">
+            <span class="row-title mono">{{ row.model }}</span>
+            <span class="mono">${{ (row.cost || 0).toFixed(6) }}</span>
+          </div>
+          <div class="field"><span class="k">请求数</span><span class="v">{{ fmt(row.requests) }}</span></div>
+        </div>
+      </div>
     </el-card>
   </div>
 </template>

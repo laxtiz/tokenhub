@@ -33,6 +33,24 @@
           </template>
         </el-table-column>
       </el-table>
+      <div class="card-list">
+        <div v-for="row in providers" :key="row.id" class="card-row">
+          <div class="row-head">
+            <span class="row-title">{{ row.name }}</span>
+            <el-tag size="small" :type="row.disabled ? 'info' : 'success'">{{ row.disabled ? '停用' : '启用' }}</el-tag>
+          </div>
+          <div class="field"><span class="k">协议</span><span class="v"><el-tag size="small">{{ row.type }}</el-tag></span></div>
+          <div class="field"><span class="k">Base URL</span><span class="v mono">{{ row.base_url }}</span></div>
+          <div class="field"><span class="k">API Keys</span><span class="v">{{ (row.keys || []).length }} 个</span></div>
+          <div class="row-actions">
+            <el-button size="small" @click="openProvForm(row)">编辑</el-button>
+            <el-button size="small" type="primary" @click="openKeys(row)">Keys</el-button>
+            <el-popconfirm title="确认删除？" @confirm="removeProvider(row)">
+              <template #reference><el-button size="small" type="danger">删除</el-button></template>
+            </el-popconfirm>
+          </div>
+        </div>
+      </div>
     </el-card>
 
     <!-- 供应商表单 -->

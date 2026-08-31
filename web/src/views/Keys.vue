@@ -42,6 +42,22 @@
           </template>
         </el-table-column>
       </el-table>
+      <div class="card-list">
+        <div v-for="row in keys" :key="row.id" class="card-row">
+          <div class="row-head">
+            <span class="row-title">{{ row.name }} <span style="color:var(--th-fg-dim);font-weight:400">#{{ row.id }}</span></span>
+            <el-tag size="small" :type="row.disabled ? 'danger' : 'success'">{{ row.disabled ? '禁用' : '正常' }}</el-tag>
+          </div>
+          <div class="field"><span class="k">Key</span><span class="v mono">{{ row.key_prefix }}****</span></div>
+          <div class="field"><span class="k">最后使用</span><span class="v">{{ fmtTime(row.last_used_at) }}</span></div>
+          <div class="field"><span class="k">创建时间</span><span class="v">{{ fmtTime(row.created_at) }}</span></div>
+          <div class="row-actions">
+            <el-popconfirm title="删除后不可恢复，确认？" @confirm="removeKey(row)">
+              <template #reference><el-button size="small" type="danger">删除</el-button></template>
+            </el-popconfirm>
+          </div>
+        </div>
+      </div>
 
       <el-divider />
       <h4>调用示例</h4>
