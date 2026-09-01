@@ -318,6 +318,73 @@ func TestOpenUpToAnthDown_TextAndToolStream(t *testing.T) {
 	}
 }
 
+func countOccurrences(s, sub string) int {
+	n := 0
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			n++
+		}
+	}
+	return n
+}
+
+// 回归测试：OpenAI 上游多个文本 chunk 必须合并为同一个 anthropic text 块，
+// 不能每个 chunk 都重建块（否则 Claude Code 会把一句话渲染成多行）。
+func TestOpenUpToAnthDownTextChunksMergeIntoSingleBlock(t *testing.T) {
+	x := NewOpenUpToAnthDown("claude-x")
+	var out []byte
+	feed := func(data string) {
+		b, d, err := x.Transform("", data)
+		if err != nil {
+			t.Fatalf("transform err: %v", err)
+		}
+		out = append(out, b...)
+		if d {
+			t.Fatal("unexpected done before [DONE]")
+		}
+	}
+	feed(`{"id":"c1","object":"chat.completion.chunk","model":"gpt-x","choices":[{"index":0,"delta":{"role":"assistant","content":"Hel"}}]}`)
+	feed(`{"id":"c1","object":"chat.completion.chunk","model":"gpt-x","choices":[{"index":0,"delta":{"content":"lo"}}]}`)
+	feed(`{"id":"c1","object":"chat.completion.chunk","model":"gpt-x","choices":[{"index":0,"delta":{"content":"！"}}]}`)
+	s := string(out)
+	// 整个流必须只出现一个 text content_block_start，且 [DONE] 之前不得出现任何 content_block_stop
+	if got := countOccurrences(s, `"type":"content_block_start"`); got != 1 {
+		t.Fatalf("want exactly 1 content_block_start, got %d in:\n%s", got, s)
+	}
+	if got := countOccurrences(s, `"type":"content_block_stop"`); got != 0 {
+		t.Fatalf("want 0 content_block_stop before done, got %d in:\n%s", got, s)
+	}
+	// 三个 chunk 的文本都在 index 0 的同一个 text 块里
+	for _, want := range []string{
+		`"type":"content_block_start"`, `"type":"text"`,
+		`"type":"text_delta","text":"Hel"`,
+		`"type":"text_delta","text":"lo"`,
+		`"type":"text_delta","text":"！"`,
+		`"index":0`,
+	} {
+		if !contains(s, want) {
+			t.Fatalf("missing %s in:\n%s", want, s)
+		}
+	}
+	feed(`{"id":"c1","object":"chat.completion.chunk","model":"gpt-x","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`)
+	feed(`{"id":"c1","object":"chat.completion.chunk","model":"gpt-x","choices":[],"usage":{"prompt_tokens":3,"completion_tokens":4}}`)
+	b, d, err := x.Transform("", "[DONE]")
+	if err != nil {
+		t.Fatalf("transform err: %v", err)
+	}
+	out = append(out, b...)
+	if !d {
+		t.Fatal("expected done after [DONE]")
+	}
+	// [DONE] 收尾应恰好关闭 text 块并发出 message_stop
+	if got := countOccurrences(string(out), `"type":"content_block_stop"`); got != 1 {
+		t.Fatalf("want 1 content_block_stop total, got %d in:\n%s", got, string(out))
+	}
+	if !contains(string(out), `"type":"message_stop"`) {
+		t.Fatalf("missing message_stop in:\n%s", string(out))
+	}
+}
+
 func TestStreamUsageObservers(t *testing.T) {
 	o := &OpenAIStreamUsage{}
 	o.Observe(`{"choices":[{"delta":{}}],"usage":{"prompt_tokens":5,"completion_tokens":2}}`)

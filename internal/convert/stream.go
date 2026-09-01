@@ -269,7 +269,10 @@ func (x *OpenUpToAnthDown) Transform(event, data string) ([]byte, bool, error) {
 			}
 		}
 		if ch.Delta.Content != nil && *ch.Delta.Content != "" {
-			out = append(out, x.closeCurrentBlock()...) // thinking 块先于文本结束
+			// 仅关闭 thinking 块；text 块跨多个上游 chunk 持续复用，不拆成多个块
+			if x.reasonOpen && !x.textOpen {
+				out = append(out, x.closeCurrentBlock()...)
+			}
 			start := x.openTextBlock()
 			if start != nil {
 				out = append(out, start...)
