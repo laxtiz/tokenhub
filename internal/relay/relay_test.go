@@ -2,13 +2,16 @@ package relay_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -451,6 +454,78 @@ func TestChannelFallback(t *testing.T) {
 	}
 	if ups[2].StatusCode != 200 {
 		t.Fatalf("last attempt should succeed: %+v", ups[2])
+	}
+}
+
+// 用户中断请求（context canceled）：不得继续轮询下一个 key / provider。
+func TestClientCancelStopsKeyRotation(t *testing.T) {
+	var called int32
+	release := make(chan struct{})
+	e := newEnv(t,
+		func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt32(&called, 1)
+			select {
+			case <-r.Context().Done(): // 客户端断开
+			case <-release: // 测试收尾
+			}
+		},
+		nil,
+	)
+	defer close(release)
+
+	// 用可取消的 context 发起请求，模拟真实客户端
+	ctx, cancel := context.WithCancel(context.Background())
+	b, _ := json.Marshal(openaiReq("gpt-x", false))
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(b))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer th-test")
+	req = req.WithContext(ctx)
+
+	done := make(chan struct{})
+	go func() {
+		w := httptest.NewRecorder()
+		e.Engine.ServeHTTP(w, req)
+		close(done)
+	}()
+
+	// 等待上游已收到请求后，模拟客户端中断
+	deadline := time.Now().Add(2 * time.Second)
+	for atomic.LoadInt32(&called) == 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if atomic.LoadInt32(&called) == 0 {
+		t.Fatal("upstream never called")
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("relay did not return after cancel")
+	}
+
+	// 只应尝试一次：不得轮询第二个 key / provider
+	if got := atomic.LoadInt32(&called); got != 1 {
+		t.Fatalf("upstream called %d times, want 1 (must not rotate after client cancel)", got)
+	}
+
+	e.Logs.Flush()
+	var rl db.RequestLog
+	e.DB.Last(&rl)
+	if rl.Status != 499 || rl.AttemptCount != 1 {
+		t.Fatalf("request log: status=%d attempts=%d, want 499/1", rl.Status, rl.AttemptCount)
+	}
+	var ups []db.UpstreamLog
+	e.DB.Where("trace_id = ?", rl.TraceID).Find(&ups)
+	if len(ups) != 1 || ups[0].ErrType != "cancel" {
+		t.Fatalf("upstream log: %+v", ups)
+	}
+	// key 不应因用户中断而被标记失败
+	var keys []db.ProviderKey
+	e.DB.Find(&keys)
+	for _, k := range keys {
+		if k.ConsecutiveFails != 0 {
+			t.Fatalf("key %d should not count cancel as failure, got fails=%d", k.ID, k.ConsecutiveFails)
+		}
 	}
 }
 

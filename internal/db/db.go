@@ -122,7 +122,7 @@ type UpstreamLog struct {
 	KeyID             uint      `json:"key_id"`
 	UpstreamModel     string    `gorm:"size:128" json:"upstream_model"`
 	StatusCode        int       `json:"status_code"`
-	ErrType           string    `gorm:"size:16" json:"err_type"` // none | auth | rate_limit | server | timeout | network | client
+	ErrType           string    `gorm:"size:16" json:"err_type"` // none | auth | rate_limit | server | timeout | network | client | cancel
 	Stream            bool      `json:"stream"`
 	PromptTokens      int64     `json:"prompt_tokens"`
 	CompletionTokens  int64     `json:"completion_tokens"`

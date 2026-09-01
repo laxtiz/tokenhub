@@ -148,6 +148,16 @@ func (r *Relay) Handle(c *gin.Context, downstreamFormat string) {
 			ul.PromptTokens, ul.CompletionTokens = usage.Prompt, usage.Completion
 			ul.CacheReadTokens, ul.CacheWriteTokens = usage.CacheRead, usage.CacheWrite
 			r.Logs.WriteUpstream(ul)
+			if uerr != nil && uerr.kind == "cancel" {
+				// 客户端已中断请求：不做任何重试，也不把中断计入 key 失败
+				rl.Status = 499
+				rl.AttemptCount = attempt
+				rl.LatencyMS = msSince(start)
+				rl.FirstTokenMS = firstToken
+				rl.Error = truncate(uerr.err.Error())
+				r.Logs.WriteRequest(rl)
+				return
+			}
 			r.markKey(&key, status, uerr)
 			if uerr != nil {
 				slog.Warn("upstream attempt failed",
@@ -387,6 +397,9 @@ func (r *Relay) forwardOnce(
 	}
 	resp, err := r.HTTP.Do(req)
 	if err != nil {
+		if canceledByClient(c, err) {
+			return 0, usage, wrote, &upstreamErr{kind: "cancel", err: context.Canceled}
+		}
 		if isTimeout(err) {
 			return 0, usage, wrote, &upstreamErr{kind: "timeout", err: err}
 		}
@@ -402,6 +415,9 @@ func (r *Relay) forwardOnce(
 	if !stream {
 		b, err := io.ReadAll(resp.Body)
 		if err != nil {
+			if canceledByClient(c, err) {
+				return resp.StatusCode, usage, wrote, &upstreamErr{kind: "cancel", err: context.Canceled}
+			}
 			return resp.StatusCode, usage, wrote, &upstreamErr{kind: "network", err: err}
 		}
 		usage, _ = extractUsage(prov.Type, b)
@@ -670,6 +686,14 @@ func isTimeout(err error) bool {
 		return ne.Timeout()
 	}
 	return false
+}
+
+// canceledByClient 判断上游请求失败是否因客户端断开（请求 context 被取消）导致。
+func canceledByClient(c *gin.Context, err error) bool {
+	if errors.Is(err, context.Canceled) {
+		return true
+	}
+	return errors.Is(c.Request.Context().Err(), context.Canceled)
 }
 
 func errorFrame(downFormat, msg string) string {
