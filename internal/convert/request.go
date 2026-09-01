@@ -22,12 +22,14 @@ func PeekRequest(body []byte) (model string, stream bool, err error) {
 
 func AnthropicToOpenAIRequest(ar *AnthropicRequest) (*OpenAIRequest, error) {
 	or := &OpenAIRequest{
-		Model:        ar.Model,
-		Stream:       ar.Stream,
-		Temperature:  ar.Temperature,
-		TopP:         ar.TopP,
-		MaxTokens:    &ar.MaxTokens,
+		Model:         ar.Model,
+		Stream:        ar.Stream,
+		Temperature:   ar.Temperature,
+		TopP:          ar.TopP,
 		StreamOptions: &OpenAIStreamOptions{IncludeUsage: ar.Stream},
+	}
+	if ar.MaxTokens > 0 {
+		or.MaxTokens = &ar.MaxTokens
 	}
 
 	// system → system 消息

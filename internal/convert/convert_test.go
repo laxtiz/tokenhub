@@ -16,7 +16,7 @@ func mustJSON(t *testing.T, v any) []byte {
 
 func TestAnthropicToOpenAIRequest_Basic(t *testing.T) {
 	ar := &AnthropicRequest{
-		Model: "claude-x",
+		Model:  "claude-x",
 		System: mustJSON(t, "you are helpful"),
 		Messages: []AnthropicMessage{
 			{Role: "user", Content: mustJSON(t, "hello")},
@@ -99,6 +99,50 @@ func TestAnthropicToOpenAIRequest_Tools(t *testing.T) {
 	json.Unmarshal(or.ToolChoice, &tc)
 	if tc != "required" {
 		t.Fatalf("bad tool_choice: %s", tc)
+	}
+}
+
+// 回归测试：anthropic 请求未携带 max_tokens 时，转换出的 openai 请求不得输出 max_tokens=0。
+func TestAnthropicToOpenAIRequest_NoMaxTokens(t *testing.T) {
+	ar := &AnthropicRequest{
+		Model:     "m",
+		Stream:    true,
+		MaxTokens: 0,
+		Messages: []AnthropicMessage{
+			{Role: "user", Content: mustJSON(t, "hello")},
+		},
+	}
+	or, err := AnthropicToOpenAIRequest(ar)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if or.MaxTokens != nil {
+		t.Fatalf("expected nil MaxTokens, got %d", *or.MaxTokens)
+	}
+	b, _ := json.Marshal(or)
+	if contains(string(b), "max_tokens") {
+		t.Fatalf("must not contain max_tokens in:\n%s", string(b))
+	}
+	// 流式计费所需的 stream_options 仍应注入
+	if or.StreamOptions == nil || !or.StreamOptions.IncludeUsage {
+		t.Fatalf("expected stream_options.include_usage=true, got %+v", or.StreamOptions)
+	}
+}
+
+func TestAnthropicToOpenAIRequest_PositiveMaxTokens(t *testing.T) {
+	ar := &AnthropicRequest{
+		Model:     "m",
+		MaxTokens: 100,
+		Messages: []AnthropicMessage{
+			{Role: "user", Content: mustJSON(t, "hello")},
+		},
+	}
+	or, err := AnthropicToOpenAIRequest(ar)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if or.MaxTokens == nil || *or.MaxTokens != 100 {
+		t.Fatalf("expected MaxTokens=100, got %v", or.MaxTokens)
 	}
 }
 
