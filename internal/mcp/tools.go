@@ -43,13 +43,6 @@ func parseSize(n int) int {
 	return n
 }
 
-func derefInt(p *int) int {
-	if p == nil {
-		return 0
-	}
-	return *p
-}
-
 // ---- list_models ----
 
 type ListModelsInput struct{}
@@ -161,8 +154,8 @@ func listMyKeysHandler(ctx context.Context, _ *mcp.CallToolRequest, _ ListMyKeys
 // ---- list_my_logs ----
 
 type ListMyLogsInput struct {
-	Page    *int   `json:"page,omitempty" jsonschema:"页码,从 1 开始,默认 1"`
-	Size    *int   `json:"size,omitempty" jsonschema:"每页条数,默认 20,最大 100"`
+	Page    int    `json:"page,omitempty" jsonschema:"页码,从 1 开始,默认 1"`
+	Size    int    `json:"size,omitempty" jsonschema:"每页条数,默认 20,最大 100"`
 	Model   string `json:"model,omitempty" jsonschema:"按模型名精确过滤"`
 	Status  int    `json:"status,omitempty" jsonschema:"按 HTTP 状态码过滤,如 200/400/500"`
 	Days    int    `json:"days,omitempty" jsonschema:"只看最近 N 天,默认 7,最大 90"`
@@ -207,14 +200,11 @@ func listMyLogsHandler(ctx context.Context, _ *mcp.CallToolRequest, in ListMyLog
 	}
 	debugLog("list_my_logs", u.Username, in)
 
-	page := 1
-	if in.Page != nil {
-		page = *in.Page
-		if page <= 0 {
-			page = 1
-		}
+	page := in.Page
+	if page <= 0 {
+		page = 1
 	}
-	size := parseSize(derefInt(in.Size))
+	size := parseSize(in.Size)
 	days := parseDays(in.Days)
 	since := time.Now().AddDate(0, 0, -days)
 
@@ -358,7 +348,7 @@ func getTraceDetailHandler(ctx context.Context, _ *mcp.CallToolRequest, in GetTr
 // ---- get_my_stats ----
 
 type GetMyStatsInput struct {
-	Days *int `json:"days,omitempty" jsonschema:"聚合天数,默认 7,最大 90"`
+	Days int `json:"days,omitempty" jsonschema:"聚合天数,默认 7,最大 90"`
 }
 
 type DailyStat struct {
@@ -396,7 +386,7 @@ func getMyStatsHandler(ctx context.Context, _ *mcp.CallToolRequest, in GetMyStat
 		return nil, GetMyStatsResult{}, err
 	}
 	debugLog("get_my_stats", u.Username, in)
-	days := parseDays(derefInt(in.Days))
+	days := parseDays(in.Days)
 	since := time.Now().AddDate(0, 0, -days)
 
 	// 按天聚合

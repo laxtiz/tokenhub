@@ -242,6 +242,19 @@ func TestMCPGetMyAccount(t *testing.T) {
 	}
 }
 
+// 9. get_my_stats 传 days 参数不应报类型错误
+func TestMCPGetMyStatsWithDays(t *testing.T) {
+	eng, _, plainA, _ := newEnv(t)
+	resp := callTool(t, eng, plainA, "get_my_stats", map[string]any{"days": 7})
+	if errObj, ok := resp["result"].(map[string]any)["isError"]; ok && errObj.(bool) {
+		t.Fatalf("get_my_stats(days=7) 返回 isError=true: %v", resp)
+	}
+	out := resultStructured(t, resp)
+	if d, ok := out["days"].(float64); !ok || int(d) != 7 {
+		t.Fatalf("期望 days=7,实际 %v", out["days"])
+	}
+}
+
 // ---- 工具函数 ----
 
 // callTool 走完整的 initialize + tools/call。
