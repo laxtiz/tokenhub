@@ -29,3 +29,13 @@ export const get = (url) => api('GET', url)
 export const post = (url, body) => api('POST', url, body)
 export const patch = (url, body) => api('PATCH', url, body)
 export const del = (url) => api('DELETE', url)
+
+// 后端 time.Time 默认序列化为 RFC3339 带服务器时区偏移（如 2026-08-31T03:02:33.228+02:00），
+// 用 Date 解析后再按浏览器本地时区渲染，保证不同地区用户看到的都是自己本地时间。
+export function fmtTime(t) {
+  if (!t) return '-'
+  const d = new Date(t)
+  if (isNaN(d.getTime())) return '-'
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}

@@ -101,7 +101,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { get, getToken } from '../api'
+import { get, getToken, fmtTime } from '../api'
 
 const isAdmin = computed(() => {
   try {
@@ -116,8 +116,7 @@ const total = ref(0)
 // 列表里只显示完整随机后缀（去掉 - 前缀），悬停可见完整 Trace ID；详情用全量
 const shortTrace = (tid) => (tid && tid.includes('-') ? tid.slice(tid.indexOf('-') + 1) : tid)
 
-// 简化时间戳：2026-08-31T03:26:20.123+08:00 → 2026-08-31 03:26
-const fmtTime = (t) => (t ? t.slice(0, 16).replace('T', ' ') : '-')
+// 后端 RFC3339 字符串带服务器时区偏移，按浏览器本地时区渲染
 const q = ref({ page: 1, size: 20, model: '', status: null, trace_id: '' })
 const traceVisible = ref(false)
 const trace = ref(null)

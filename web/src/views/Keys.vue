@@ -107,14 +107,12 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { get, post, del } from '../api'
+import { get, post, del, fmtTime } from '../api'
 
 const keys = ref([])
 const newPlain = ref('')
 
-// 简化时间戳：2026-08-31T03:02:33.228+08:00 → 2026-08-31 03:02
-const fmtTime = (t) => (t ? t.slice(0, 16).replace('T', ' ') : '-')
-
+// 后端 RFC3339 字符串带服务器时区偏移，按浏览器本地时区渲染
 const host = window.location.origin
 
 const examples = computed(() => {

@@ -74,15 +74,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { get, post, patch } from '../api'
+import { get, post, patch, fmtTime } from '../api'
 
 const users = ref([])
 const formVisible = ref(false)
 const form = ref({})
 
-// 简化时间戳：2026-08-31T03:02:33.228+08:00 → 2026-08-31 03:02
-const fmtTime = (t) => (t ? t.slice(0, 16).replace('T', ' ') : '-')
-
+// 后端 RFC3339 字符串带服务器时区偏移，按浏览器本地时区渲染
 async function load() {
   users.value = await get('/api/admin/users')
 }
