@@ -25,23 +25,6 @@
         <el-select v-model="filters.model" placeholder="下游模型" clearable filterable allow-create style="width:180px" @change="load">
           <el-option v-for="m in allModels" :key="m.id" :value="m.name" :label="m.name" />
         </el-select>
-        <el-select v-model="filters.upstream_model" placeholder="上游模型" clearable filterable allow-create style="width:180px" @change="load">
-          <el-option v-for="m in upstreamModelOptions" :key="m" :value="m" :label="m" />
-        </el-select>
-        <el-select v-model="filters.downstream_format" placeholder="协议" clearable style="width:110px" @change="load">
-          <el-option value="openai" label="OpenAI" />
-          <el-option value="anthropic" label="Anthropic" />
-        </el-select>
-        <el-select v-model="filters.status" placeholder="状态码" clearable style="width:130px" @change="load">
-          <el-option :value="200" label="200 成功" />
-          <el-option :value="400" label="400" />
-          <el-option :value="401" label="401" />
-          <el-option :value="403" label="403" />
-          <el-option :value="429" label="429 限流" />
-          <el-option :value="500" label="500" />
-          <el-option :value="502" label="502" />
-          <el-option :value="503" label="503" />
-        </el-select>
         <el-select v-model="filters.err_type" placeholder="错误类型" clearable style="width:140px" @change="load">
           <el-option value="auth" label="auth" />
           <el-option value="rate_limit" label="rate_limit" />
@@ -234,9 +217,6 @@ const filters = ref({
   user_id: null,
   provider_id: null,
   model: '',
-  upstream_model: '',
-  downstream_format: '',
-  status: null,
   err_type: ''
 })
 
@@ -253,15 +233,6 @@ function successRateTextOf(row) {
   if (!row.attempts) return '-'
   return ((Number(row.success_count || 0) / Number(row.attempts)) * 100).toFixed(1) + '%'
 }
-
-// 拉过的上游模型 id 集合（从 by_provider 间接拿不到；从 by_model 也只能拿到下游 model）。
-// 简单做法：拉一次上游历史，让用户可过滤。
-const upstreamHistory = ref([])
-
-const upstreamModelOptions = computed(() => {
-  const fromProvider = (data.value?.by_provider || []).flatMap(p => [])
-  return Array.from(new Set([...fromProvider, ...upstreamHistory.value])).slice(0, 50)
-})
 
 const COLOR = {
   green: '#4ade80', amber: '#f59e0b', dim: '#9ca3af',
@@ -360,9 +331,6 @@ async function load() {
   if (filters.value.user_id) params.set('user_id', filters.value.user_id)
   if (filters.value.provider_id) params.set('provider_id', filters.value.provider_id)
   if (filters.value.model) params.set('model', filters.value.model)
-  if (filters.value.upstream_model) params.set('upstream_model', filters.value.upstream_model)
-  if (filters.value.downstream_format) params.set('downstream_format', filters.value.downstream_format)
-  if (filters.value.status) params.set('status', filters.value.status)
   if (filters.value.err_type) params.set('err_type', filters.value.err_type)
 
   const d = await get(`/api/admin/analytics?${params}`)
@@ -413,8 +381,7 @@ function padDaily(rows, n) {
 
 function resetFilters() {
   filters.value = {
-    user_id: null, provider_id: null, model: '',
-    upstream_model: '', downstream_format: '', status: null, err_type: ''
+    user_id: null, provider_id: null, model: '', err_type: ''
   }
   load()
 }
