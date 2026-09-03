@@ -423,6 +423,112 @@ func extractModelIDs(body []byte, provType string) []string {
 	return ids
 }
 
+// testProviderModel 对指定 provider 发起一次极简聊天请求（max_tokens=1, "ping"），
+// 用来判断上游模型 id 是否真实可用。
+// 行为：
+//   - 复用 listProviderModels 的 BaseURL/Auth 规范；
+//   - 遍历该 provider 下所有 active Key，任一成功即返回 200，其余视为 502；
+//   - 仅探活，不修改 Key 状态/计数。
+func (s *Server) testProviderModel(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	var prov db.Provider
+	if err := s.DB.First(&prov, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "供应商不存在"})
+		return
+	}
+	if prov.Type != "openai" && prov.Type != "anthropic" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "不支持的供应商类型"})
+		return
+	}
+	var req struct {
+		Model string `json:"model"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Model == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "model 必填"})
+		return
+	}
+	var keys []db.ProviderKey
+	s.DB.Where("provider_id = ? AND status = ?", prov.ID, "active").Order("id ASC").Find(&keys)
+	if len(keys) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "该供应商无可用 Key"})
+		return
+	}
+
+	var url string
+	if prov.Type == "anthropic" {
+		url = fmt.Sprintf("%s/v1/messages", trimRightSlash(prov.BaseURL))
+	} else {
+		url = fmt.Sprintf("%s/chat/completions", trimRightSlash(prov.BaseURL))
+	}
+	body := buildProbeBody(prov.Type, req.Model)
+	rawBody, _ := json.Marshal(body)
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	var lastStatus int
+	var lastErr string
+	for _, k := range keys {
+		httpReq, _ := http.NewRequest(http.MethodPost, url, bytes.NewReader(rawBody))
+		httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("Accept", "application/json")
+		if prov.Type == "anthropic" {
+			httpReq.Header.Set("x-api-key", k.APIKey)
+			httpReq.Header.Set("anthropic-version", "2023-06-01")
+		} else {
+			httpReq.Header.Set("Authorization", "Bearer "+k.APIKey)
+		}
+		start := time.Now()
+		resp, err := client.Do(httpReq)
+		latency := time.Since(start).Milliseconds()
+		if err != nil {
+			lastStatus = 0
+			lastErr = err.Error()
+			continue
+		}
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
+		resp.Body.Close()
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			c.JSON(http.StatusOK, gin.H{
+				"ok":         true,
+				"status":     resp.StatusCode,
+				"latency_ms": latency,
+				"key_id":     k.ID,
+				"excerpt":    string(bytes.TrimSpace(respBody)),
+			})
+			return
+		}
+		lastStatus = resp.StatusCode
+		lastErr = string(bytes.TrimSpace(respBody))
+	}
+	if lastStatus == 0 {
+		c.JSON(http.StatusBadGateway, gin.H{"ok": false, "error": "无法连接上游", "detail": lastErr})
+		return
+	}
+	c.JSON(http.StatusBadGateway, gin.H{
+		"ok": false, "status": lastStatus, "error": "上游返回错误", "detail": lastErr,
+	})
+}
+
+// buildProbeBody 构造极简探测请求，max_tokens=1 限制成本。
+func buildProbeBody(provType, model string) any {
+	if provType == "anthropic" {
+		return map[string]any{
+			"model":      model,
+			"max_tokens": 1,
+			"messages":   []map[string]any{{"role": "user", "content": "ping"}},
+		}
+	}
+	return map[string]any{
+		"model":      model,
+		"max_tokens": 1,
+		"messages":   []map[string]any{{"role": "user", "content": "ping"}},
+		"stream":     false,
+	}
+}
+
 // ---- 下游模型与渠道 ----
 
 func (s *Server) adminListModels(c *gin.Context) {

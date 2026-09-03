@@ -147,10 +147,22 @@
             <span style="font-family:ui-monospace,monospace">{{ row.id }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column label="状态" width="120" align="center">
           <template #default="{ row }">
-            <el-button size="small" type="primary" :loading="creatingModel === row.id" @click="createAsNewModel(row)">设为新模型</el-button>
-            <el-button size="small" @click="openAttach(row)">添加到模型</el-button>
+            <template v-if="testStates[row.id]">
+              <el-tag v-if="testStates[row.id].ok" size="small" type="success">{{ testStates[row.id].status }} · {{ testStates[row.id].latency_ms }}ms</el-tag>
+              <el-tag v-else size="small" type="danger" :title="testStates[row.id].detail">{{ testStates[row.id].status || '×' }}</el-tag>
+            </template>
+            <span v-else style="color:#666">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="280" fixed="right">
+          <template #default="{ row }">
+            <div style="display:flex;gap:6px;align-items:center;white-space:nowrap">
+              <el-button size="small" @click="testModel(row)" :loading="testingModel === row.id">测试</el-button>
+              <el-button size="small" type="primary" :loading="creatingModel === row.id" @click="createAsNewModel(row)">设为新模型</el-button>
+              <el-button size="small" @click="openAttach(row)">添加到模型</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -205,6 +217,8 @@ const modelsError = ref('')
 const upstreamModels = ref([])
 const modelFilter = ref('')
 const creatingModel = ref(null)
+const testingModel = ref(null)
+const testStates = ref({}) // model id -> {ok, status, latency_ms, detail?}
 
 const allModels = ref([])
 const attachVisible = ref(false)
@@ -330,6 +344,28 @@ async function loadUpstreamModels() {
     modelsError.value = '拉取失败：' + e.message
   } finally {
     modelsLoading.value = false
+  }
+}
+
+async function testModel(row) {
+  if (testingModel.value) return
+  testingModel.value = row.id
+  // 立即清掉旧状态，避免 UI 残留
+  delete testStates.value[row.id]
+  try {
+    const r = await post(`/api/admin/providers/${current.value.id}/models/test`, { model: row.id })
+    testStates.value = { ...testStates.value, [row.id]: r }
+    if (r.ok) {
+      ElMessage.success(`${row.id} 可用 (${r.latency_ms}ms)`)
+    } else {
+      ElMessage.warning(`${row.id} 不可用 (${r.status || '连接失败'})`)
+    }
+  } catch (e) {
+    const status = e.status || 0
+    testStates.value = { ...testStates.value, [row.id]: { ok: false, status, detail: e.message } }
+    ElMessage.error(`${row.id} 测试失败：${e.message}`)
+  } finally {
+    testingModel.value = null
   }
 }
 

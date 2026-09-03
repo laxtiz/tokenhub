@@ -52,6 +52,7 @@ func (s *Server) Setup(r *gin.Engine) {
 		admin.PATCH("/providers/:id", s.updateProvider)
 		admin.DELETE("/providers/:id", s.deleteProvider)
 		admin.GET("/providers/:id/models", s.listProviderModels)
+		admin.POST("/providers/:id/models/test", s.testProviderModel)
 		admin.POST("/providers/:id/keys", s.createProviderKey)
 		admin.PATCH("/provider-keys/:id", s.updateProviderKey)
 		admin.DELETE("/provider-keys/:id", s.deleteProviderKey)
