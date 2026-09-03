@@ -97,7 +97,8 @@ const navGroups = computed(() => {
     ]},
     { label: 'admin', items: admin ? [
       { path: '/providers', title: '供应商' },
-      { path: '/users', title: '用户' }
+      { path: '/users', title: '用户' },
+      { path: '/admin/stats', title: '全站统计' }
     ] : [] }
   ]
 })

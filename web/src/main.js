@@ -17,6 +17,7 @@ import LogsView from './views/Logs.vue'
 import ProvidersView from './views/Providers.vue'
 import UsersView from './views/Users.vue'
 import KeysView from './views/Keys.vue'
+import AdminStats from './views/AdminStats.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -30,6 +31,7 @@ const router = createRouter({
         { path: 'logs', component: LogsView },
         { path: 'providers', component: ProvidersView, meta: { admin: true } },
         { path: 'users', component: UsersView, meta: { admin: true } },
+        { path: 'admin/stats', component: AdminStats, meta: { admin: true } },
         { path: 'keys', component: KeysView }
       ]
     }

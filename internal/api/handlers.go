@@ -68,6 +68,7 @@ func (s *Server) Setup(r *gin.Engine) {
 		admin.GET("/logs", s.listLogs(true))
 		admin.GET("/logs/:traceId", s.traceDetail(true))
 		admin.GET("/stats", s.stats(true))
+		admin.GET("/analytics", s.adminAnalytics)
 	}
 }
 
