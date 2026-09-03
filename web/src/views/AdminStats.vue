@@ -98,22 +98,20 @@
       <el-card>
         <template #header>
           <div class="card-head-flex">
-            <span>用户消费 TOP</span>
-            <span class="card-head-meta">合计 ${{ Number(totals?.cost || 0).toFixed(6) }}</span>
+            <span>模型消费 TOP</span>
+            <span class="card-head-meta">{{ data.by_model?.length || 0 }} 个</span>
           </div>
         </template>
-        <el-table :data="data.by_user || []" size="small">
-          <el-table-column label="用户" min-width="140">
-            <template #default="{ row }">
-              <span class="mono">{{ row.username || ('#' + row.user_id) }}</span>
-            </template>
+        <el-table :data="data.by_model || []" size="small">
+          <el-table-column label="模型" min-width="180">
+            <template #default="{ row }"><span class="mono">{{ row.model }}</span></template>
           </el-table-column>
-          <el-table-column prop="requests" label="请求" width="90" align="right" header-align="left" />
+          <el-table-column prop="requests" label="请求" width="80" align="right" header-align="left" />
           <el-table-column label="费用" width="140" align="right" header-align="left">
             <template #default="{ row }"><span class="mono">${{ Number(row.cost || 0).toFixed(6) }}</span></template>
           </el-table-column>
         </el-table>
-        <div v-if="!data.by_user?.length" class="empty">暂无数据</div>
+        <div v-if="!data.by_model?.length" class="empty">暂无数据</div>
       </el-card>
 
       <el-card>
@@ -150,20 +148,22 @@
       <el-card>
         <template #header>
           <div class="card-head-flex">
-            <span>模型消费 TOP</span>
-            <span class="card-head-meta">{{ data.by_model?.length || 0 }} 个</span>
+            <span>用户消费 TOP</span>
+            <span class="card-head-meta">合计 ${{ Number(totals?.cost || 0).toFixed(6) }}</span>
           </div>
         </template>
-        <el-table :data="data.by_model || []" size="small">
-          <el-table-column label="模型" min-width="180">
-            <template #default="{ row }"><span class="mono">{{ row.model }}</span></template>
+        <el-table :data="data.by_user || []" size="small">
+          <el-table-column label="用户" min-width="140">
+            <template #default="{ row }">
+              <span class="mono">{{ row.username || ('#' + row.user_id) }}</span>
+            </template>
           </el-table-column>
-          <el-table-column prop="requests" label="请求" width="80" align="right" header-align="left" />
+          <el-table-column prop="requests" label="请求" width="90" align="right" header-align="left" />
           <el-table-column label="费用" width="140" align="right" header-align="left">
             <template #default="{ row }"><span class="mono">${{ Number(row.cost || 0).toFixed(6) }}</span></template>
           </el-table-column>
         </el-table>
-        <div v-if="!data.by_model?.length" class="empty">暂无数据</div>
+        <div v-if="!data.by_user?.length" class="empty">暂无数据</div>
       </el-card>
 
       <el-card>
@@ -367,7 +367,48 @@ async function load() {
 
   const d = await get(`/api/admin/analytics?${params}`)
   data.value = d
-  daily.value = d.daily || []
+  daily.value = padDaily(d.daily || [], days.value)
+}
+
+// 与 Dashboard.vue 一致：缺失日补零，保证 X 轴连续
+function padDaily(rows, n) {
+  const byDay = new Map()
+  for (const r of rows || []) {
+    if (r && r.day) byDay.set(String(r.day), r)
+  }
+  const out = []
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(today.getDate() - i)
+    const key = d.getFullYear() + '-'
+      + String(d.getMonth() + 1).padStart(2, '0') + '-'
+      + String(d.getDate()).padStart(2, '0')
+    const r = byDay.get(key)
+    if (r) {
+      out.push({
+        day: key,
+        requests: Number(r.requests) || 0,
+        prompt_tokens: Number(r.prompt_tokens) || 0,
+        completion_tokens: Number(r.completion_tokens) || 0,
+        cache_read_tokens: Number(r.cache_read_tokens) || 0,
+        cache_write_tokens: Number(r.cache_write_tokens) || 0,
+        cost: Number(r.cost) || 0
+      })
+    } else {
+      out.push({
+        day: key,
+        requests: 0,
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
+        cost: 0
+      })
+    }
+  }
+  return out
 }
 
 function resetFilters() {
