@@ -25,15 +25,7 @@
         <el-select v-model="filters.model" placeholder="下游模型" clearable filterable allow-create style="width:180px" @change="load">
           <el-option v-for="m in allModels" :key="m.id" :value="m.name" :label="m.name" />
         </el-select>
-        <el-select v-model="filters.err_type" placeholder="错误类型" clearable style="width:140px" @change="load">
-          <el-option value="auth" label="auth" />
-          <el-option value="rate_limit" label="rate_limit" />
-          <el-option value="server" label="server" />
-          <el-option value="timeout" label="timeout" />
-          <el-option value="network" label="network" />
-          <el-option value="client" label="client" />
-          <el-option value="cancel" label="cancel" />
-        </el-select>
+        <div class="filters-spacer" />
         <el-button @click="resetFilters">重置</el-button>
       </div>
     </el-card>
@@ -216,8 +208,7 @@ const daily = ref([])
 const filters = ref({
   user_id: null,
   provider_id: null,
-  model: '',
-  err_type: ''
+  model: ''
 })
 
 const fmt = (n) => Number(n ?? 0).toLocaleString()
@@ -331,7 +322,6 @@ async function load() {
   if (filters.value.user_id) params.set('user_id', filters.value.user_id)
   if (filters.value.provider_id) params.set('provider_id', filters.value.provider_id)
   if (filters.value.model) params.set('model', filters.value.model)
-  if (filters.value.err_type) params.set('err_type', filters.value.err_type)
 
   const d = await get(`/api/admin/analytics?${params}`)
   data.value = d
@@ -381,7 +371,7 @@ function padDaily(rows, n) {
 
 function resetFilters() {
   filters.value = {
-    user_id: null, provider_id: null, model: '', err_type: ''
+    user_id: null, provider_id: null, model: ''
   }
   load()
 }
@@ -415,6 +405,7 @@ onMounted(async () => {
 .filters {
   display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
 }
+.filters-spacer { flex: 1; }
 
 .summary {
   display: flex; gap: 32px; padding: 4px 2px 14px; flex-wrap: wrap;
