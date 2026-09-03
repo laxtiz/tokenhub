@@ -20,16 +20,20 @@
             <el-tag size="small" :type="row.disabled ? 'info' : 'success'">{{ row.disabled ? '停用' : '启用' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="API Keys" width="140">
-          <template #default="{ row }">{{ (row.keys || []).length }} 个</template>
-        </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="API Keys" width="120">
           <template #default="{ row }">
-            <el-button size="small" @click="openProvForm(row)">编辑</el-button>
-            <el-button size="small" type="primary" @click="openKeys(row)">Keys</el-button>
-            <el-popconfirm title="确认删除？" @confirm="removeProvider(row)">
-              <template #reference><el-button size="small" type="danger">删除</el-button></template>
-            </el-popconfirm>
+            <el-button link type="primary" @click="openKeys(row)">{{ (row.keys || []).length }} 个</el-button>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="230" fixed="right">
+          <template #default="{ row }">
+            <div style="display:flex;gap:6px;align-items:center;white-space:nowrap">
+              <el-button size="small" @click="openProvForm(row)">编辑</el-button>
+              <el-button size="small" @click="openModels(row)">模型列表</el-button>
+              <el-popconfirm title="确认删除？" @confirm="removeProvider(row)">
+                <template #reference><el-button size="small" type="danger">删除</el-button></template>
+              </el-popconfirm>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -47,10 +51,14 @@
           <div class="field" v-if="row.custom_headers">
             <span class="k">Headers</span><span class="v mono">{{ row.custom_headers }}</span>
           </div>
-          <div class="field"><span class="k">API Keys</span><span class="v">{{ (row.keys || []).length }} 个</span></div>
+          <div class="field"><span class="k">API Keys</span>
+            <span class="v">
+              <el-button link type="primary" @click="openKeys(row)">{{ (row.keys || []).length }} 个</el-button>
+            </span>
+          </div>
           <div class="row-actions">
             <el-button size="small" @click="openProvForm(row)">编辑</el-button>
-            <el-button size="small" type="primary" @click="openKeys(row)">Keys</el-button>
+            <el-button size="small" @click="openModels(row)">模型列表</el-button>
             <el-popconfirm title="确认删除？" @confirm="removeProvider(row)">
               <template #reference><el-button size="small" type="danger">删除</el-button></template>
             </el-popconfirm>
@@ -126,11 +134,58 @@
         </el-table-column>
       </el-table>
     </el-dialog>
+
+    <!-- 上游模型列表 -->
+    <el-dialog v-model="modelsVisible" :title="`上游模型 - ${current?.name}`" width="720px" @opened="ensureModelsLoaded">
+      <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+        <el-input v-model="modelFilter" placeholder="按模型 id 过滤" clearable style="flex:1" />
+        <el-button :loading="modelsLoading" @click="loadUpstreamModels">重新拉取</el-button>
+      </div>
+      <el-table :data="filteredModels" v-loading="modelsLoading" size="small" max-height="480">
+        <el-table-column label="模型 id" min-width="200">
+          <template #default="{ row }">
+            <span style="font-family:ui-monospace,monospace">{{ row.id }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="240" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" type="primary" :loading="creatingModel === row.id" @click="createAsNewModel(row)">设为新模型</el-button>
+            <el-button size="small" @click="openAttach(row)">添加到模型</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div v-if="!modelsLoading && !modelsError && filteredModels.length === 0" style="text-align:center;color:#999;padding:20px">
+        未拉取到模型
+      </div>
+      <div v-if="modelsError" style="color:#e6a23c;padding:8px 0">{{ modelsError }}</div>
+    </el-dialog>
+
+    <!-- 添加到模型：选择目标下游模型 -->
+    <el-dialog v-model="attachVisible" title="添加到模型" width="440px" append-to-body>
+      <el-form label-width="100px">
+        <el-form-item label="上游模型">
+          <el-input :model-value="attachModelId" disabled />
+        </el-form-item>
+        <el-form-item label="目标模型">
+          <el-select v-model="attachTargetId" filterable placeholder="搜索并选择已有下游模型" style="width:100%">
+            <el-option v-for="m in allModels" :key="m.id" :value="m.id" :label="`${m.name}${m.display_name ? ' · ' + m.display_name : ''}`" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="优先级">
+          <el-input-number v-model="attachPriority" :min="0" />
+          <span style="margin-left:8px;color:#999">数字越小越优先</span>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="attachVisible = false">取消</el-button>
+        <el-button type="primary" :loading="attaching" :disabled="!attachTargetId" @click="confirmAttach">添加</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { get, post, patch, del } from '../api'
 
@@ -143,6 +198,26 @@ const keys = ref([])
 const newKey = ref('')
 const newKeyName = ref('')
 const testing = ref(null)
+
+const modelsVisible = ref(false)
+const modelsLoading = ref(false)
+const modelsError = ref('')
+const upstreamModels = ref([])
+const modelFilter = ref('')
+const creatingModel = ref(null)
+
+const allModels = ref([])
+const attachVisible = ref(false)
+const attachModelId = ref('')
+const attachTargetId = ref(null)
+const attachPriority = ref(1)
+const attaching = ref(false)
+
+const filteredModels = computed(() => {
+  const q = modelFilter.value.trim().toLowerCase()
+  if (!q) return upstreamModels.value
+  return upstreamModels.value.filter(m => m.id.toLowerCase().includes(q))
+})
 
 const mask = (k) => (k && k.length > 12 ? k.slice(0, 6) + '****' + k.slice(-4) : k)
 const keyTagType = (s) => ({ active: 'success', rate_limited: 'warning', invalid: 'danger', disabled: 'info' }[s] || '')
@@ -227,6 +302,95 @@ async function removeKey(row) {
   await del(`/api/admin/provider-keys/${row.id}`)
   await load()
   keys.value = providers.value.find(p => p.id === current.value.id)?.keys || []
+}
+
+function openModels(row) {
+  current.value = row
+  upstreamModels.value = []
+  modelFilter.value = ''
+  modelsError.value = ''
+  modelsVisible.value = true
+}
+
+async function ensureModelsLoaded() {
+  if (upstreamModels.value.length === 0 && !modelsError.value) {
+    await loadUpstreamModels()
+  }
+}
+
+async function loadUpstreamModels() {
+  if (!current.value) return
+  modelsLoading.value = true
+  modelsError.value = ''
+  try {
+    const r = await get(`/api/admin/providers/${current.value.id}/models`)
+    upstreamModels.value = (r?.models || []).map(m => ({ id: m.id }))
+  } catch (e) {
+    upstreamModels.value = []
+    modelsError.value = '拉取失败：' + e.message
+  } finally {
+    modelsLoading.value = false
+  }
+}
+
+async function createAsNewModel(row) {
+  if (creatingModel.value) return
+  creatingModel.value = row.id
+  try {
+    const m = await post('/api/admin/models', {
+      name: row.id,
+      display_name: row.id,
+      description: '',
+      context_length: 128000,
+      support_vision: false,
+      support_tools: true,
+      support_reasoning: false,
+      input_price: 0,
+      output_price: 0,
+      cache_read_price: 0,
+      cache_write_price: 0,
+      currency: 'USD'
+    })
+    ElMessage.success(`已创建下游模型 ${m.name}`)
+  } catch (e) {
+    ElMessage.error(e.message)
+  } finally {
+    creatingModel.value = null
+  }
+}
+
+async function ensureAllModels() {
+  if (allModels.value.length === 0) {
+    allModels.value = await get('/api/admin/models')
+  }
+}
+
+function openAttach(row) {
+  attachModelId.value = row.id
+  attachTargetId.value = null
+  attachPriority.value = 1
+  attachVisible.value = true
+  ensureAllModels()
+}
+
+async function confirmAttach() {
+  if (!attachTargetId.value) return
+  attaching.value = true
+  try {
+    await post(`/api/admin/models/${attachTargetId.value}/channels`, {
+      provider_id: current.value.id,
+      upstream_model: attachModelId.value,
+      priority: attachPriority.value,
+      weight: 1,
+      disabled: false
+    })
+    ElMessage.success('已添加渠道')
+    attachVisible.value = false
+  } catch (e) {
+    ElMessage.error(e.message)
+  } finally {
+    attaching.value = false
+  }
 }
 
 onMounted(load)

@@ -8,7 +8,7 @@
         </div>
       </template>
       <el-table :data="models" stripe class="models-table">
-        <el-table-column label="模型" min-width="200">
+        <el-table-column label="模型" min-width="260">
           <template #default="{ row }">
             <div class="model-name-cell">
               <div class="model-name">{{ row.name }}</div>
@@ -29,7 +29,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="价格 / 1M tokens" min-width="240">
+        <el-table-column label="价格 / 1M tokens" min-width="180">
           <template #default="{ row }">
             <div class="price-cell">
               <div class="price-row">
@@ -43,16 +43,19 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column v-if="isAdmin" label="上游渠道" width="90" align="right" header-align="left">
-          <template #default="{ row }">{{ (row.channels || []).length }} 个</template>
-        </el-table-column>
-        <el-table-column v-if="isAdmin" label="操作" width="200" fixed="right">
+        <el-table-column v-if="isAdmin" label="上游渠道" width="100" align="right" header-align="left">
           <template #default="{ row }">
-            <el-button size="small" @click="openEdit(row)">编辑</el-button>
-            <el-button size="small" @click="openChannel(row)">渠道</el-button>
-            <el-popconfirm title="确认删除？" @confirm="removeModel(row)">
-              <template #reference><el-button size="small" type="danger">删除</el-button></template>
-            </el-popconfirm>
+            <el-button link type="primary" @click="openChannel(row)">{{ (row.channels || []).length }} 个</el-button>
+          </template>
+        </el-table-column>
+        <el-table-column v-if="isAdmin" label="操作" width="160" fixed="right">
+          <template #default="{ row }">
+            <div style="display:flex;gap:6px;align-items:center;white-space:nowrap">
+              <el-button size="small" @click="openEdit(row)">编辑</el-button>
+              <el-popconfirm title="确认删除？" @confirm="removeModel(row)">
+                <template #reference><el-button size="small" type="danger">删除</el-button></template>
+              </el-popconfirm>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -73,10 +76,13 @@
           <div v-if="row.context_length" class="field"><span class="k">上下文</span><span class="v">{{ row.context_length?.toLocaleString() }}</span></div>
           <div class="field"><span class="k">输入/输出</span><span class="v">${{ row.input_price }} / ${{ row.output_price }}</span></div>
           <div class="field"><span class="k">缓存读/写</span><span class="v">${{ row.cache_read_price }} / ${{ row.cache_write_price }}</span></div>
-          <div v-if="isAdmin" class="field"><span class="k">上游渠道</span><span class="v">{{ (row.channels || []).length }} 个</span></div>
+          <div v-if="isAdmin" class="field"><span class="k">上游渠道</span>
+            <span class="v">
+              <el-button link type="primary" @click="openChannel(row)">{{ (row.channels || []).length }} 个</el-button>
+            </span>
+          </div>
           <div v-if="isAdmin" class="row-actions">
             <el-button size="small" @click="openEdit(row)">编辑</el-button>
-            <el-button size="small" @click="openChannel(row)">渠道</el-button>
             <el-popconfirm title="确认删除？" @confirm="removeModel(row)">
               <template #reference><el-button size="small" type="danger">删除</el-button></template>
             </el-popconfirm>
@@ -327,7 +333,7 @@ onMounted(load)
 }
 .price-row {
   display: flex;
-  gap: 14px;
+  gap: 8px;
 }
 .price-row-cache {
   color: var(--th-fg-dim);
