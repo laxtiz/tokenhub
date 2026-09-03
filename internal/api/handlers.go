@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -31,6 +32,8 @@ func (s *Server) Setup(r *gin.Engine) {
 		user.GET("/models", s.listModels)
 		user.GET("/keys", s.listKeys)
 		user.POST("/keys", s.createKey)
+		user.PATCH("/keys/:id", s.updateKey)
+		user.POST("/keys/:id/revoke", s.revokeKey)
 		user.DELETE("/keys/:id", s.deleteKey)
 		user.GET("/logs", s.listLogs(false))
 		user.GET("/logs/:traceId", s.traceDetail(false))
@@ -150,6 +153,63 @@ func (s *Server) deleteKey(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// updateKey 局部更新下游 Key：仅允许 name / disabled。
+func (s *Server) updateKey(c *gin.Context) {
+	u := currentUser(c)
+	var dk db.DownstreamKey
+	if err := s.DB.Where("id = ? AND user_id = ?", c.Param("id"), u.ID).First(&dk).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "不存在"})
+		return
+	}
+	var req map[string]any
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	updates := map[string]any{}
+	if v, ok := req["name"].(string); ok {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "name 不能为空"})
+			return
+		}
+		if len(v) > 128 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "name 超过 128 字符"})
+			return
+		}
+		updates["name"] = v
+	}
+	if v, ok := req["disabled"].(bool); ok {
+		updates["disabled"] = v
+	}
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无可更新字段"})
+		return
+	}
+	s.DB.Model(&dk).Updates(updates)
+	s.DB.First(&dk, dk.ID)
+	c.JSON(http.StatusOK, dk)
+}
+
+// revokeKey 重新生成下游 Key 的 hash/prefix（保留 id 与 name）；
+// 历史记录（last_used_at、日志关联）继续可用，明文仅本次返回。
+func (s *Server) revokeKey(c *gin.Context) {
+	u := currentUser(c)
+	var dk db.DownstreamKey
+	if err := s.DB.Where("id = ? AND user_id = ?", c.Param("id"), u.ID).First(&dk).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "不存在"})
+		return
+	}
+	plain, hash, prefix := auth.GenerateDownstreamKey()
+	updates := map[string]any{"key_hash": hash, "key_prefix": prefix}
+	if dk.Disabled {
+		updates["disabled"] = false
+	}
+	s.DB.Model(&dk).Updates(updates)
+	s.DB.First(&dk, dk.ID)
+	c.JSON(http.StatusOK, gin.H{"key": dk, "plain_key": plain})
 }
 
 // ---- 用户：模型列表（含元属性与价格） ----

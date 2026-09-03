@@ -9,7 +9,10 @@
       </template>
 
       <el-alert v-if="newPlain" type="success" :closable="false" style="margin-bottom:16px">
-        <p style="margin:0 0 6px">Key 创建成功，<b>仅此一次显示</b>，请立即复制保存：</p>
+        <p style="margin:0 0 6px">
+          <template v-if="newPlainTitle">{{ newPlainTitle }}</template>
+          <template v-else>Key 创建成功，<b>仅此一次显示</b>，请立即复制保存：</template>
+        </p>
         <el-input :model-value="newPlain" readonly>
           <template #append>
             <el-button @click="copy">复制</el-button>
@@ -34,11 +37,17 @@
         <el-table-column label="创建时间" width="150">
           <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="80" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
-            <el-popconfirm title="删除后不可恢复，确认？" @confirm="removeKey(row)">
-              <template #reference><el-button size="small" type="danger">删除</el-button></template>
-            </el-popconfirm>
+            <div style="display:flex;gap:6px;align-items:center;white-space:nowrap">
+              <el-button size="small" @click="renameKey(row)">重命名</el-button>
+              <el-popconfirm title="撤销将立即作废旧 Key，确认？" @confirm="revokeKey(row)">
+                <template #reference><el-button size="small" type="warning">撤销</el-button></template>
+              </el-popconfirm>
+              <el-popconfirm title="删除后不可恢复，确认？" @confirm="removeKey(row)">
+                <template #reference><el-button size="small" type="danger">删除</el-button></template>
+              </el-popconfirm>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -52,6 +61,10 @@
           <div class="field"><span class="k">最后使用</span><span class="v">{{ fmtTime(row.last_used_at) }}</span></div>
           <div class="field"><span class="k">创建时间</span><span class="v">{{ fmtTime(row.created_at) }}</span></div>
           <div class="row-actions">
+            <el-button size="small" @click="renameKey(row)">重命名</el-button>
+            <el-popconfirm title="撤销将立即作废旧 Key，确认？" @confirm="revokeKey(row)">
+              <template #reference><el-button size="small" type="warning">撤销</el-button></template>
+            </el-popconfirm>
             <el-popconfirm title="删除后不可恢复，确认？" @confirm="removeKey(row)">
               <template #reference><el-button size="small" type="danger">删除</el-button></template>
             </el-popconfirm>
@@ -106,11 +119,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { get, post, del, fmtTime } from '../api'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { get, post, patch, del, fmtTime } from '../api'
 
 const keys = ref([])
 const newPlain = ref('')
+const newPlainTitle = ref('')
 
 // 后端 RFC3339 字符串带服务器时区偏移，按浏览器本地时区渲染
 const host = window.location.origin
@@ -144,6 +158,22 @@ async function load() {
 async function createKey() {
   const { value } = await ElMessageBox.prompt('请输入 Key 名称', '新建 Key', { inputValue: 'default' })
   const data = await post('/api/user/keys', { name: value })
+  newPlainTitle.value = ''
+  newPlain.value = data.plain_key
+  load()
+}
+
+async function renameKey(row) {
+  const { value } = await ElMessageBox.prompt('请输入新名称', '重命名 Key', { inputValue: row.name })
+  if (!value || value === row.name) return
+  await patch(`/api/user/keys/${row.id}`, { name: value })
+  ElMessage.success('已重命名')
+  load()
+}
+
+async function revokeKey(row) {
+  const data = await post(`/api/user/keys/${row.id}/revoke`)
+  newPlainTitle.value = 'Key 已撤销，旧值立即失效。明文仅此一次显示，请立即复制保存：'
   newPlain.value = data.plain_key
   load()
 }
@@ -158,7 +188,6 @@ async function copy() {
   ElMessage.success('已复制')
 }
 
-import { ElMessageBox } from 'element-plus'
 onMounted(load)
 </script>
 
