@@ -309,6 +309,120 @@ func trimRightSlash(s string) string {
 	return s
 }
 
+// listProviderModels 从上游 GET /v1/models 拉取可用模型 id 列表。
+// 与 testProviderKey 同规范：openai 型 BaseURL 含 /v1（拼 /models），anthropic 型补 /v1/models。
+// 仅探活读取，不修改任何 Key 的状态/计数；逐个尝试该 provider 下所有 active Key，首个 200 即返回。
+func (s *Server) listProviderModels(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	var prov db.Provider
+	if err := s.DB.First(&prov, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "供应商不存在"})
+		return
+	}
+	if prov.Type != "openai" && prov.Type != "anthropic" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "不支持的供应商类型"})
+		return
+	}
+	var keys []db.ProviderKey
+	s.DB.Where("provider_id = ? AND status = ?", prov.ID, "active").Order("id ASC").Find(&keys)
+	if len(keys) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "该供应商无可用 Key"})
+		return
+	}
+
+	var url string
+	if prov.Type == "anthropic" {
+		url = fmt.Sprintf("%s/v1/models", trimRightSlash(prov.BaseURL))
+	} else {
+		url = fmt.Sprintf("%s/models", trimRightSlash(prov.BaseURL))
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	var lastStatus int
+	var lastErr string
+	for _, k := range keys {
+		req, _ := http.NewRequest(http.MethodGet, url, nil)
+		if prov.Type == "anthropic" {
+			req.Header.Set("x-api-key", k.APIKey)
+			req.Header.Set("anthropic-version", "2023-06-01")
+		} else {
+			req.Header.Set("Authorization", "Bearer "+k.APIKey)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			lastStatus = 0
+			lastErr = err.Error()
+			continue
+		}
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			lastStatus = resp.StatusCode
+			lastErr = string(bytes.TrimSpace(body))
+			continue
+		}
+		ids := extractModelIDs(body, prov.Type)
+		if ids == nil {
+			lastStatus = resp.StatusCode
+			lastErr = "无法解析上游响应"
+			continue
+		}
+		models := make([]gin.H, 0, len(ids))
+		for _, id := range ids {
+			models = append(models, gin.H{"id": id})
+		}
+		c.JSON(http.StatusOK, gin.H{"models": models, "count": len(models)})
+		return
+	}
+	if lastStatus == 0 {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "无法连接上游", "detail": lastErr})
+		return
+	}
+	c.JSON(http.StatusBadGateway, gin.H{"error": "上游返回错误", "status": lastStatus, "detail": lastErr})
+}
+
+// extractModelIDs 解析 OpenAI / Anthropic 的 /v1/models 响应，仅返回模型 id 列表。
+// 响应结构不识别时返回 nil（调用方据此继续尝试下一个 Key）。
+func extractModelIDs(body []byte, provType string) []string {
+	var wrap struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &wrap); err != nil {
+		return nil
+	}
+	if len(wrap.Data) == 0 {
+		// 一些代理返回 {"models":[...]} 或直接数组；保持兼容
+		var alt struct {
+			Models []struct {
+				ID string `json:"id"`
+			} `json:"models"`
+		}
+		if err := json.Unmarshal(body, &alt); err == nil && len(alt.Models) > 0 {
+			ids := make([]string, 0, len(alt.Models))
+			for _, m := range alt.Models {
+				if m.ID != "" {
+					ids = append(ids, m.ID)
+				}
+			}
+			return ids
+		}
+		return nil
+	}
+	ids := make([]string, 0, len(wrap.Data))
+	for _, m := range wrap.Data {
+		if m.ID != "" {
+			ids = append(ids, m.ID)
+		}
+	}
+	return ids
+}
+
 // ---- 下游模型与渠道 ----
 
 func (s *Server) adminListModels(c *gin.Context) {

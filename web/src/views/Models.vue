@@ -141,7 +141,15 @@
               <el-option v-for="p in providers" :key="p.id" :value="p.id" :label="`${p.name} (${p.type})`" />
             </el-select>
           </el-form-item>
-          <el-form-item label="上游模型名"><el-input v-model="chForm.upstream_model" /></el-form-item>
+          <el-form-item label="上游模型名">
+            <el-select v-model="chForm.upstream_model" filterable allow-create default-first-option
+              :loading="loadingModels" placeholder="选择或输入上游模型 id" style="flex:1">
+              <el-option v-for="id in upstreamModels" :key="id" :value="id" :label="id" />
+            </el-select>
+            <el-button size="small" :loading="loadingModels" @click="fetchUpstreamModels(chForm.provider_id)" style="margin-left:8px">
+              刷新
+            </el-button>
+          </el-form-item>
           <el-form-item label="优先级"><el-input-number v-model="chForm.priority" :min="0" /><span style="margin-left:8px;color:#999">数字越小越优先</span></el-form-item>
           <el-form-item label="停用"><el-switch v-model="chForm.disabled" /></el-form-item>
         </el-form>
@@ -155,7 +163,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { get, post, patch, del } from '../api'
 import { getToken } from '../api'
@@ -176,6 +184,8 @@ const channels = ref([])
 const current = ref(null)
 const channelFormVisible = ref(false)
 const chForm = ref({})
+const upstreamModels = ref([])
+const loadingModels = ref(false)
 
 function emptyModel() {
   return { name: '', display_name: '', description: '', context_length: 128000,
@@ -226,7 +236,31 @@ async function openChannel(row) {
 function openChannelForm(row) {
   chForm.value = row ? { ...row } : { provider_id: providers.value[0]?.id, upstream_model: '', priority: 1, disabled: false }
   channelFormVisible.value = true
+  fetchUpstreamModels(chForm.value.provider_id)
 }
+
+async function fetchUpstreamModels(providerId) {
+  if (!providerId) { upstreamModels.value = []; return }
+  loadingModels.value = true
+  try {
+    const r = await get(`/api/admin/providers/${providerId}/models`)
+    upstreamModels.value = (r?.models || []).map(m => m.id)
+    const cur = chForm.value?.upstream_model
+    if (cur && !upstreamModels.value.includes(cur)) {
+      // 切换 provider 后清空旧模型名，避免误指到别家
+      chForm.value.upstream_model = ''
+    }
+  } catch (e) {
+    upstreamModels.value = []
+    ElMessage.warning('拉取模型失败：' + e.message + '，可手填')
+  } finally {
+    loadingModels.value = false
+  }
+}
+
+watch(() => chForm.value?.provider_id, (newId, oldId) => {
+  if (newId && newId !== oldId) fetchUpstreamModels(newId)
+})
 
 async function saveChannel() {
   try {
