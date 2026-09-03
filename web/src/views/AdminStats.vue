@@ -117,6 +117,29 @@
       <el-card>
         <template #header>
           <div class="card-head-flex">
+            <span>用户消费 TOP</span>
+            <span class="card-head-meta">合计 ${{ Number(totals?.cost || 0).toFixed(6) }}</span>
+          </div>
+        </template>
+        <el-table :data="data.by_user || []" size="small">
+          <el-table-column label="用户" min-width="140">
+            <template #default="{ row }">
+              <span class="mono">{{ row.username || ('#' + row.user_id) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="requests" label="请求" width="90" align="right" header-align="left" />
+          <el-table-column label="费用" width="140" align="right" header-align="left">
+            <template #default="{ row }"><span class="mono">${{ Number(row.cost || 0).toFixed(6) }}</span></template>
+          </el-table-column>
+        </el-table>
+        <div v-if="!data.by_user?.length" class="empty">暂无数据</div>
+      </el-card>
+    </div>
+
+    <div class="grid-2">
+      <el-card>
+        <template #header>
+          <div class="card-head-flex">
             <span>供应商分布</span>
             <span class="card-head-meta">{{ data.by_provider?.length || 0 }} 个</span>
           </div>
@@ -141,29 +164,6 @@
           </el-table-column>
         </el-table>
         <div v-if="!data.by_provider?.length" class="empty">暂无数据</div>
-      </el-card>
-    </div>
-
-    <div class="grid-2">
-      <el-card>
-        <template #header>
-          <div class="card-head-flex">
-            <span>用户消费 TOP</span>
-            <span class="card-head-meta">合计 ${{ Number(totals?.cost || 0).toFixed(6) }}</span>
-          </div>
-        </template>
-        <el-table :data="data.by_user || []" size="small">
-          <el-table-column label="用户" min-width="140">
-            <template #default="{ row }">
-              <span class="mono">{{ row.username || ('#' + row.user_id) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="requests" label="请求" width="90" align="right" header-align="left" />
-          <el-table-column label="费用" width="140" align="right" header-align="left">
-            <template #default="{ row }"><span class="mono">${{ Number(row.cost || 0).toFixed(6) }}</span></template>
-          </el-table-column>
-        </el-table>
-        <div v-if="!data.by_user?.length" class="empty">暂无数据</div>
       </el-card>
 
       <el-card>
