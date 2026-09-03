@@ -123,18 +123,20 @@
           <el-table-column label="供应商" min-width="160">
             <template #default="{ row }">
               <span class="mono">{{ row.provider_name }}</span>
-              <el-tag size="small" style="margin-left:6px">{{ row.provider_type }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="attempts" label="尝试" width="80" align="right" header-align="left" />
-          <el-table-column label="成功率" width="90" align="right" header-align="left">
+          <el-table-column prop="attempts" label="尝试" width="70" align="right" header-align="left" />
+          <el-table-column label="成功率" width="80" align="right" header-align="left">
             <template #default="{ row }">
               <span class="mono">{{ successRateTextOf(row) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="输入/输出" width="160" align="right" header-align="left">
+          <el-table-column label="输入/输出" width="140" align="right" header-align="left">
             <template #default="{ row }">
-              <span class="mono">{{ fmt(row.prompt_tokens) }} / {{ fmt(row.completion_tokens) }}</span>
+              <div class="mono io-cell">
+                <div><span class="k">输入</span>{{ fmt(row.prompt_tokens) }}</div>
+                <div><span class="k">输出</span>{{ fmt(row.completion_tokens) }}</div>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -406,6 +408,14 @@ onMounted(async () => {
   display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
 }
 .filters-spacer { flex: 1; }
+
+.io-cell {
+  display: flex; flex-direction: column; align-items: flex-end; line-height: 1.5;
+  font-size: 12px;
+}
+.io-cell .k {
+  color: var(--th-fg-dim); margin-right: 4px;
+}
 
 .summary {
   display: flex; gap: 32px; padding: 4px 2px 14px; flex-wrap: wrap;
